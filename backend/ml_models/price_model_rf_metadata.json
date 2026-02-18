@@ -1,0 +1,24 @@
+{
+  "model": "RandomForestRegressor",
+  "n_estimators": 300,
+  "features": [
+    "name_text",
+    "unit",
+    "day_number",
+    "month",
+    "day_of_week",
+    "price_low",
+    "price_high",
+    "price_spread",
+    "lag_1",
+    "lag_2",
+    "lag_3",
+    "rolling_mean_3"
+  ],
+  "trained_at": "2026-02-17T10:01:00.898881",
+  "training_samples": 423,
+  "test_samples": 145,
+  "mae": 1.9531,
+  "rmse": 3.9243,
+  "r2": 0.9992
+}
