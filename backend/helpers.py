@@ -5,6 +5,7 @@ import io
 import os
 import smtplib
 import ssl
+import hashlib
 from datetime import datetime
 from db import get_mongodb_db
 from email.message import EmailMessage
@@ -15,6 +16,54 @@ from reportlab.lib.utils import ImageReader
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+def calculate_shipping_fee(address):
+    """
+    Calculate shipping fee based on distance (simulated via address hash).
+    Minimum fee: 39 pesos. Maximum fee: 80 pesos.
+    """
+    if not address:
+        return 39.0
+    
+    # Generate a pseudo-random distance based on the address string
+    h = 0
+    for char in address:
+        h = ((h << 5) - h) + ord(char)
+        h &= 0xFFFFFFFF
+    if h & 0x80000000:
+        h = -((h ^ 0xFFFFFFFF) + 1)
+    hash_val = abs(h)
+    
+    # Distance between 1 and 50 km
+    distance = 1.0 + (hash_val % 50)
+    
+    # Base fee is 39 for up to 5km. Then +1 peso per km.
+    fee = 39.0 + max(0, distance - 5) * 1.0
+    
+    if fee > 80.0:
+        fee = 80.0
+        
+    return float(fee)
+
+
+def calculate_bulk_discount(total_items, total_amount):
+    """
+    Calculate discount for bulk orders.
+    - 5-9 items: 5% discount
+    - 10-19 items: 10% discount
+    - 20+ items: 15% discount
+    """
+    discount_rate = 0.0
+    if total_items >= 20:
+        discount_rate = 0.15
+    elif total_items >= 10:
+        discount_rate = 0.10
+    elif total_items >= 5:
+        discount_rate = 0.05
+        
+    discount_amount = total_amount * discount_rate
+    return discount_rate, discount_amount
 
 
 def allowed_file(filename):
@@ -124,7 +173,7 @@ def build_email_html(title, subtitle, content_html, badge_text=None):
     """
 
 
-def generate_receipt_pdf(order_id, buyer_name, buyer_email, items, total_amount):
+def generate_receipt_pdf(order_id, buyer_name, buyer_email, items, subtotal, discount_amount=0, shipping_fee=0, final_total=0):
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
@@ -185,8 +234,22 @@ def generate_receipt_pdf(order_id, buyer_name, buyer_email, items, total_amount)
 
     pdf.setStrokeColorRGB(0.85, 0.85, 0.85)
     pdf.line(margin_x, y - 6, width - margin_x, y - 6)
+    
+    y -= 22
+    pdf.setFont("Helvetica", 10)
+    pdf.drawRightString(width - margin_x, y, f"Subtotal: \u20b1{float(subtotal):.2f}")
+    
+    if discount_amount > 0:
+        y -= 16
+        pdf.drawRightString(width - margin_x, y, f"Discount: -\u20b1{float(discount_amount):.2f}")
+        
+    if shipping_fee > 0:
+        y -= 16
+        pdf.drawRightString(width - margin_x, y, f"Shipping Fee: \u20b1{float(shipping_fee):.2f}")
+        
+    y -= 20
     pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawRightString(width - margin_x, y - 22, f"Total: \u20b1{float(total_amount):.2f}")
+    pdf.drawRightString(width - margin_x, y, f"Total: \u20b1{float(final_total):.2f}")
 
     pdf.setFont("Helvetica", 9)
     pdf.setFillColorRGB(0.4, 0.4, 0.4)

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { ordersAPI } from '../services/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import DeliveryTrackingMap from '../components/DeliveryTrackingMap';
 
 const Orders = () => {
   const { user } = useAuth();
@@ -239,6 +240,17 @@ const Orders = () => {
                               <span><a href={order.delivery_proof_url} target="_blank" rel="noreferrer">View photo ↗</a></span>
                             </div>
                           )}
+                          
+                          {/* Live GPS Tracking Map */}
+                          {(order.status === 'on_the_way' || order.delivery_status === 'on_the_way') && (
+                            <div className="mt-4 mb-4">
+                              <DeliveryTrackingMap 
+                                orderId={orderId} 
+                                destinationAddress={order.shipping_address || order.delivery_address || ''} 
+                              />
+                            </div>
+                          )}
+
                           {order.delivery_updates && order.delivery_updates.length > 0 && (
                             <div className="ord-updates">
                               {order.delivery_updates.map((u, i) => (
@@ -268,6 +280,28 @@ const Orders = () => {
                               </div>
                             );
                           })}
+                          
+                          {order.subtotal && (
+                            <div className="ord-items-subtotal" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#6b7280', marginTop: '8px' }}>
+                              <span>Subtotal</span>
+                              <span>₱{(order.subtotal || 0).toFixed(2)}</span>
+                            </div>
+                          )}
+                          
+                          {order.discount_amount > 0 && (
+                            <div className="ord-items-discount" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#16a34a' }}>
+                              <span>Discount ({(order.discount_rate * 100).toFixed(0)}%)</span>
+                              <span>-₱{(order.discount_amount || 0).toFixed(2)}</span>
+                            </div>
+                          )}
+                          
+                          {order.shipping_fee > 0 && (
+                            <div className="ord-items-shipping" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#6b7280' }}>
+                              <span>Shipping Fee</span>
+                              <span>₱{(order.shipping_fee || 0).toFixed(2)}</span>
+                            </div>
+                          )}
+                          
                           <div className="ord-items-total">
                             <span>Total</span>
                             <span>₱{(order.total_amount || 0).toFixed(2)}</span>

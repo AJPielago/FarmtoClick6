@@ -1,8 +1,8 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// API Base URL - Change this to your Flask server URL
-const API_BASE_URL = 'http://10.253.232.130:5001'; // Replace with your computer's IP address
+
+const API_BASE_URL = 'http://192.168.2.194:5001'; //  computer's IP address
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -12,7 +12,7 @@ const api = axios.create({
   timeout: 30000,
 });
 
-// Request interceptor to add auth token and handle FormData
+
 api.interceptors.request.use(
   async (config) => {
     try {
@@ -134,6 +134,8 @@ export const ordersAPI = {
     api.post(`/api/rider/orders/${id}/status`, payload),
   assignRider: (id: string, payload: any) => api.post(`/api/orders/${id}/assign-rider`, payload),
   confirmPaymongo: (orderId: string) => api.post('/api/paymongo/confirm', { order_id: orderId }),
+  updateOrderLocation: (orderId: string, lat: number, lng: number) =>
+    api.post(`/api/orders/${orderId}/location`, { lat, lng }),
 };
 
 // DTI Price API

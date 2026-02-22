@@ -593,8 +593,8 @@
   color: #166534;
 }
 .inline-rider-option.no-match {
-  opacity: 0.45;
-  cursor: not-allowed;
+  opacity: 1;
+  cursor: pointer;
 }
 .inline-rider-option-name {
   font-weight: 600;
@@ -794,7 +794,7 @@
   background: #f0fdf4;
 }
 .rider-modal-card.no-match {
-  opacity: 0.5;
+  opacity: 1;
 }
 .rider-modal-card-info {
   flex: 1;

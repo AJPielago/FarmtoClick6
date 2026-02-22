@@ -118,6 +118,32 @@ const Cart = () => {
   const total = cartItems.reduce((sum, item) => sum + (item.product?.price || 0) * (item.quantity || 0), 0);
   const itemCount = cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
+  let discountRate = 0;
+  if (itemCount >= 20) discountRate = 0.15;
+  else if (itemCount >= 10) discountRate = 0.10;
+  else if (itemCount >= 5) discountRate = 0.05;
+
+  const discountAmount = total * discountRate;
+  const subtotal = total - discountAmount;
+
+  const calculateShippingFee = (address) => {
+    if (!address) return 39.0;
+    let h = 0;
+    for (let i = 0; i < address.length; i++) {
+      h = ((h << 5) - h) + address.charCodeAt(i);
+      h |= 0;
+    }
+    const hashVal = Math.abs(h);
+    const distance = 1.0 + (hashVal % 50);
+    let fee = 39.0 + Math.max(0, distance - 5) * 1.0;
+    if (fee > 80.0) fee = 80.0;
+    return fee;
+  };
+
+  const shippingAddress = [user?.shipping_address, user?.overall_location].filter(Boolean).join(', ');
+  const shippingFee = calculateShippingFee(shippingAddress);
+  const finalTotal = subtotal + shippingFee;
+
   const dismissFlash = (i) => setFlashMessages(prev => prev.filter((_, idx) => idx !== i));
 
   if (!user) {
@@ -248,14 +274,20 @@ const Cart = () => {
                   <span>Subtotal ({itemCount} item{itemCount !== 1 ? 's' : ''})</span>
                   <span>₱{total.toFixed(2)}</span>
                 </div>
+                {discountAmount > 0 && (
+                  <div className="ct-summary-line ct-discount">
+                    <span>Bulk Discount ({(discountRate * 100).toFixed(0)}%)</span>
+                    <span>-₱{discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="ct-summary-line">
                   <span>Delivery Fee</span>
-                  <span className="ct-muted">At checkout</span>
+                  <span>₱{shippingFee.toFixed(2)}</span>
                 </div>
                 <div className="ct-summary-divider"></div>
                 <div className="ct-summary-line ct-summary-total">
                   <span>Estimated Total</span>
-                  <span>₱{total.toFixed(2)}</span>
+                  <span>₱{finalTotal.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -542,6 +574,7 @@ const CartStyles = () => (
       color: #374151;
       padding: 6px 0;
     }
+    .ct-discount { color: #16a34a; font-weight: 600; }
     .ct-muted { color: #94a3b8; font-style: italic; font-size: 0.8rem; }
     .ct-summary-divider { height: 1px; background: #f1f5f9; margin: 10px 0; }
     .ct-summary-total { font-weight: 800; font-size: 1rem; color: #111827; padding-top: 8px; }

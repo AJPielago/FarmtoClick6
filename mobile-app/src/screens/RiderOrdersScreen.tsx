@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,6 +45,8 @@ const RiderOrdersScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [proofs, setProofs] = useState<Record<string, any>>({});
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+  const locationSubscription = useRef<Location.LocationSubscription | null>(null);
 
   const loadOrders = useCallback(async () => {
     try {
@@ -72,6 +75,59 @@ const RiderOrdersScreen: React.FC = () => {
     await loadOrders();
     setRefreshing(false);
   };
+
+  const stopTracking = () => {
+    if (locationSubscription.current) {
+      locationSubscription.current.remove();
+      locationSubscription.current = null;
+    }
+    setTrackingOrderId(null);
+  };
+
+  const startTracking = async (orderId: string) => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location permission is required to track delivery.');
+        return;
+      }
+
+      // Stop any existing tracking
+      stopTracking();
+      setTrackingOrderId(orderId);
+
+      locationSubscription.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 10000, // Update every 10 seconds
+          distanceInterval: 10, // Or every 10 meters
+        },
+        async (location) => {
+          try {
+            await ordersAPI.updateOrderLocation(
+              orderId,
+              location.coords.latitude,
+              location.coords.longitude
+            );
+            console.log(`Location updated for order ${orderId}`);
+          } catch (err) {
+            console.error('Failed to update location', err);
+          }
+        }
+      );
+      Alert.alert('Tracking Started', 'Your location is now being shared with the buyer.');
+    } catch (error) {
+      console.error('Error starting tracking:', error);
+      Alert.alert('Error', 'Failed to start location tracking.');
+      setTrackingOrderId(null);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopTracking();
+    };
+  }, []);
 
   const pickProof = async (orderId: string, useCamera: boolean) => {
     try {
@@ -135,6 +191,9 @@ const RiderOrdersScreen: React.FC = () => {
           delete next[orderId];
           return next;
         });
+        if (status === 'delivered') {
+          stopTracking();
+        }
         Alert.alert('Success', `Order ${status} successfully!`);
         loadOrders();
       } else {
@@ -271,6 +330,21 @@ const RiderOrdersScreen: React.FC = () => {
 
                 {statusValue === 'on_the_way' && (
                   <View style={styles.proofSection}>
+                    {trackingOrderId === order.id ? (
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: '#f44336', marginBottom: 10 }]}
+                        onPress={stopTracking}
+                      >
+                        <Text style={styles.actionText}>Stop GPS Tracking</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: '#2196F3', marginBottom: 10 }]}
+                        onPress={() => startTracking(order.id)}
+                      >
+                        <Text style={styles.actionText}>Start GPS Tracking</Text>
+                      </TouchableOpacity>
+                    )}
                     <Text style={styles.metaLabel}>Delivery Proof</Text>
                     {proof ? (
                       <Image source={{ uri: proof.uri }} style={styles.proofImage} />

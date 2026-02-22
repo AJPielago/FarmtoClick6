@@ -110,6 +110,7 @@ class Order(Document):
     status = StringField(default='pending', choices=['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'])
     delivery_address = StringField()
     delivery_notes = StringField()
+    driver_location = DictField()  # Stores {'lat': float, 'lng': float, 'updated_at': datetime}
     created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(default=datetime.utcnow)
     
@@ -122,6 +123,7 @@ class Order(Document):
             'status': self.status,
             'delivery_address': self.delivery_address,
             'delivery_notes': self.delivery_notes,
+            'driver_location': self.driver_location,
             'created_at': _to_iso(self.created_at),
             'updated_at': _to_iso(self.updated_at)
         }

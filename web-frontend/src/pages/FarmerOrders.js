@@ -92,10 +92,11 @@ const FarmerOrders = () => {
     const order = sellerOrders.find((o) => o.id === orderId);
     if (!order) return;
 
-    if (!riderMatchesOrder(order, rider)) {
-      setFlashMessages([{ category: 'error', text: 'Rider area must match buyer address (barangay/city/province).' }]);
-      return;
-    }
+    // Removed strict area match check to allow assigning any rider
+    // if (!riderMatchesOrder(order, rider)) {
+    //   setFlashMessages([{ category: 'error', text: 'Rider area must match buyer address (barangay/city/province).' }]);
+    //   return;
+    // }
 
     try {
       setAssigningOrderId(orderId);
@@ -411,8 +412,8 @@ const FarmerOrders = () => {
                                               key={rider.id}
                                               className={`inline-rider-option ${isMatch ? 'is-match' : 'no-match'}`}
                                               onClick={() => assignRiderToOrder(order.id, rider)}
-                                              disabled={!isMatch || assigningOrderId === order.id}
-                                              title={isMatch ? 'Click to assign' : 'Area does not match buyer address'}
+                                              disabled={assigningOrderId === order.id}
+                                              title={isMatch ? 'Area match' : 'Area does not match buyer address'}
                                             >
                                               <span className="inline-rider-option-name">{rider.name}</span>
                                               <span className="inline-rider-option-area">
@@ -555,10 +556,10 @@ const FarmerOrders = () => {
                           </p>
                         </div>
                         <button
-                          className={`btn ${isMatch ? 'btn-primary' : 'btn-outline'} btn-assign`}
+                          className={`btn btn-primary btn-assign`}
                           onClick={() => assignRiderToOrder(riderModalOrderId, rider)}
-                          disabled={!isMatch || isAssigning}
-                          title={isMatch ? 'Assign this rider' : 'Area does not match buyer address'}
+                          disabled={isAssigning}
+                          title={isMatch ? 'Area match' : 'Assign this rider'}
                         >
                           {isAssigning ? (
                             <><i className="fas fa-spinner fa-spin"></i> Assigning...</>

@@ -134,10 +134,23 @@ def checkout():
             flash('Unable to place order. Please try again.', 'error')
             return redirect(url_for('cart.cart'))
 
+        from helpers import calculate_shipping_fee, calculate_bulk_discount
+        
+        total_items = sum(item['quantity'] for item in order_items)
+        discount_rate, discount_amount = calculate_bulk_discount(total_items, total_amount)
+        subtotal = total_amount - discount_amount
+        
+        shipping_fee = calculate_shipping_fee(shipping_address)
+        final_total = subtotal + shipping_fee
+
         order_result = db.orders.insert_one({
             'user_id': current_user.id,
             'items': order_items,
-            'total_amount': total_amount,
+            'subtotal': total_amount,
+            'discount_rate': discount_rate,
+            'discount_amount': discount_amount,
+            'shipping_fee': shipping_fee,
+            'total_amount': final_total,
             'status': 'pending',
             'delivery_status': 'pending',
             'logistics_provider': 'lalamove',
@@ -166,8 +179,25 @@ def checkout():
                     }
                     for item in order_items
                 ]
+                
+                if discount_amount > 0:
+                    line_items = [{
+                        'name': 'Order Total (with Discount)',
+                        'quantity': 1,
+                        'amount': int(round(subtotal * 100)),
+                        'currency': 'PHP',
+                    }]
+                    
+                if shipping_fee > 0:
+                    line_items.append({
+                        'name': 'Shipping Fee',
+                        'quantity': 1,
+                        'amount': int(round(shipping_fee * 100)),
+                        'currency': 'PHP',
+                    })
+                    
                 checkout = create_checkout_session(
-                    amount=int(round(total_amount * 100)),
+                    amount=int(round(final_total * 100)),
                     description=f'FarmtoClick Order {order_result.inserted_id}',
                     success_url=success_url,
                     cancel_url=cancel_url,
@@ -201,7 +231,7 @@ def checkout():
 
         try:
             oid = str(order_result.inserted_id)
-            receipt_pdf = generate_receipt_pdf(oid, shipping_name, current_user.email, order_items, total_amount)
+            receipt_pdf = generate_receipt_pdf(oid, shipping_name, current_user.email, order_items, total_amount, discount_amount, shipping_fee, final_total)
             email_html = build_email_html(
                 title="Order Confirmed",
                 subtitle="Your order is pending seller approval",
@@ -219,7 +249,7 @@ def checkout():
                 current_app,
                 current_user.email,
                 "FarmtoClick Order Confirmed - Pending Approval",
-                f"Order ID: {oid}\nTotal: {total_amount}",
+                f"Order ID: {oid}\nTotal: {final_total}",
                 html_body=email_html,
                 attachments=[{
                     'filename': f"FarmtoClick-Receipt-{oid}.pdf",
