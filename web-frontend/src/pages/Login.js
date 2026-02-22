@@ -25,11 +25,10 @@ const Login = () => {
   };
 
   return (
-    <div className="auth-page">
-
+    <div className="auth-split-container">
       {/* Flash Messages */}
       {flashMessages.length > 0 && (
-        <div className="flash-messages">
+        <div className="flash-messages" style={{ position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
           {flashMessages.map((message, index) => (
             <div key={index} className={`flash-message flash-${message.category}`}>
               <i className={`fas fa-${message.category === 'success' ? 'check-circle' : message.category === 'error' ? 'exclamation-circle' : 'info-circle'}`}></i>
@@ -46,15 +45,14 @@ const Login = () => {
         </div>
       )}
 
-      <section className="auth-section">
-        <div className="auth-container">
-          <div className="auth-card">
-            <div className="auth-header">
-              <h2><i className="fas fa-sign-in-alt"></i> Welcome Back</h2>
-              <p>Login to your FarmtoClick account</p>
-            </div>
+      <div className="auth-split-form-side">
+        <div className="auth-split-card">
+          <div className="auth-header">
+            <h2><i className="fas fa-sign-in-alt"></i> Welcome Back</h2>
+            <p>Login to your FarmtoClick account</p>
+          </div>
 
-            <form onSubmit={handleSubmit} className="auth-form">
+          <form onSubmit={handleSubmit} className="auth-form">
               <div className="form-group">
                 <label className="form-label">Email</label>
                 <input
@@ -110,46 +108,13 @@ const Login = () => {
             </div>
           </div>
         </div>
-      </section>
 
-      <footer className="footer">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-section">
-              <h3><i className="fas fa-seedling"></i> FarmtoClick</h3>
-              <p>Connecting communities with fresh, local produce since 2024.</p>
-            </div>
-            <div className="footer-section">
-              <h4>Quick Links</h4>
-              <ul>
-                <li><Link to="/products">Products</Link></li>
-                <li><Link to="/farmers">Farmers</Link></li>
-                <li><a href="/about">About Us</a></li>
-                <li><a href="/faq">FAQ</a></li>
-              </ul>
-            </div>
-            <div className="footer-section">
-              <h4>For Farmers</h4>
-              <ul>
-                <li><a href="/start-selling">Join as Farmer</a></li>
-                <li><a href="/farmer-resources">Farmer Resources</a></li>
-                <li><a href="/success-stories">Success Stories</a></li>
-              </ul>
-            </div>
-            <div className="footer-section">
-              <h4>Follow Us</h4>
-              <div className="social-links">
-                <a href="https://facebook.com/farmtoclick" target="_blank" rel="noopener noreferrer"><i className="fab fa-facebook"></i> Facebook</a>
-                <a href="https://instagram.com/farmtoclick" target="_blank" rel="noopener noreferrer"><i className="fab fa-instagram"></i> Instagram</a>
-                <a href="https://twitter.com/farmtoclick" target="_blank" rel="noopener noreferrer"><i className="fab fa-twitter"></i> Twitter</a>
-              </div>
-            </div>
-          </div>
-          <div className="footer-bottom">
-            <p>&copy; 2024 FarmtoClick. All rights reserved.</p>
-          </div>
+      <div className="auth-split-image-side" style={{ backgroundImage: `url(${process.env.PUBLIC_URL}/images/farm.jpg)` }}>
+        <div className="auth-split-image-overlay">
+          <h1>FarmtoClick</h1>
+          <p>Connecting local farmers directly with consumers for fresh, sustainable produce.</p>
         </div>
-      </footer>
+      </div>
     </div>
   );
 };

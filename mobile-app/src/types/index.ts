@@ -160,4 +160,10 @@ export type RootStackParamList = {
   CoVendorsMarketplace: undefined;
   AdminRiders: undefined;
   Notifications: undefined;
+  AboutUs: undefined;
+  AdminPrintableReports: undefined;
+  AdminReviews: undefined;
+  AdminUsers: undefined;
+  FarmerOrders: undefined;
+  RiderDashboard: undefined;
 };

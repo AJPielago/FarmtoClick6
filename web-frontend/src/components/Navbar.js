@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import NotificationsDropdown from './NotificationsDropdown';
 import { notificationsAPI } from '../services/api';
 
@@ -28,6 +29,7 @@ const Navbar = ({ activePage }) => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
   const { user, logout } = useAuth();
+  const { cartCount } = useCart();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -151,6 +153,25 @@ const Navbar = ({ activePage }) => {
                           </Link>
                         </>
                       )}
+                      {user.is_farmer && (
+                        <>
+                          <div className="dropdown-divider"></div>
+                          <Link to="/farmer-dashboard" className="dropdown-item" onClick={() => setDropdownOpen(false)}>
+                            <i className="fas fa-store"></i> Farmer Dashboard
+                          </Link>
+                        </>
+                      )}
+                      {user.role === 'rider' && (
+                        <>
+                          <div className="dropdown-divider"></div>
+                          <Link to="/rider-dashboard" className="dropdown-item" onClick={() => setDropdownOpen(false)}>
+                            <i className="fas fa-tachometer-alt"></i> Rider Dashboard
+                          </Link>
+                          <Link to="/rider-orders" className="dropdown-item" onClick={() => setDropdownOpen(false)}>
+                            <i className="fas fa-motorcycle"></i> Assigned Orders
+                          </Link>
+                        </>
+                      )}
                       <div className="dropdown-divider"></div>
                       <button onClick={() => { setDropdownOpen(false); logout(); }} className="dropdown-item logout">
                         <i className="fas fa-sign-out-alt"></i> Logout
@@ -180,13 +201,10 @@ const Navbar = ({ activePage }) => {
             <li><Link to="/products" className={activePage === 'products' ? 'active' : ''} onClick={handleNavClick}>Products</Link></li>
             <li><Link to="/farmers" className={activePage === 'farmers' ? 'active' : ''} onClick={handleNavClick}>Farmers</Link></li>
             <li><Link to="/price-trends" className={activePage === 'price-trends' ? 'active' : ''} onClick={handleNavClick}>Price Trends</Link></li>
-            <li><a href="#about" onClick={handleNavClick}>About Us</a></li>
+            <li><Link to="/about" className={activePage === 'about' ? 'active' : ''} onClick={handleNavClick}>About Us</Link></li>
             <li><a href="#contact" onClick={handleNavClick}>Contact</a></li>
             {user && user.is_farmer && (
               <li><Link to="/farmer-dashboard" className={activePage === 'myshop' ? 'active' : ''} onClick={handleNavClick}>My Shop</Link></li>
-            )}
-            {user && user.role === 'rider' && (
-              <li><Link to="/rider-orders" className={activePage === 'rider-orders' ? 'active' : ''} onClick={handleNavClick}>Assigned Orders</Link></li>
             )}
           </ul>
           <div className="nav-right">
@@ -196,7 +214,12 @@ const Navbar = ({ activePage }) => {
               </Link>
             )}
             <Link to="/cart" className="navbar-cart" onClick={handleNavClick} aria-label="View cart">
-              <i className="fas fa-shopping-cart"></i>
+              <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                <i className="fas fa-shopping-cart"></i>
+                {cartCount > 0 && (
+                  <span className="cart-badge">{cartCount > 99 ? '99+' : cartCount}</span>
+                )}
+              </span>
               <span className="cart-text">Cart</span>
             </Link>
           </div>

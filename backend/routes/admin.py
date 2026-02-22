@@ -7,6 +7,7 @@ from collections import defaultdict
 from flask import Blueprint, render_template, request, redirect, flash, jsonify
 from flask_login import login_required, current_user
 
+from bson import ObjectId
 from db import get_mongodb_db, ensure_mongoengine_user
 from middleware import token_required
 
@@ -1027,3 +1028,140 @@ def geocode():
     except Exception as e:
         print(f"Geocoding error: {e}")
         return {'error': str(e)}, 500
+
+
+# ------------------------------------------------------------------
+# Admin user management – list / activate / deactivate
+# ------------------------------------------------------------------
+@admin_bp.route('/api/admin/users', methods=['GET'])
+@token_required
+def admin_get_users():
+    """Return all users with optional role filter and search."""
+    try:
+        db, _ = get_mongodb_db(admin_bp)
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+
+        user_email = request.user_email
+        if not user_email:
+            return jsonify({'error': 'User email not found in token'}), 401
+
+        admin_user = db.users.find_one({'email': user_email, 'role': 'admin'})
+        if not admin_user:
+            return jsonify({'error': 'Admin access required'}), 403
+
+        # Optional filters
+        role_filter = request.args.get('role')       # user | farmer | admin | rider
+        search_query = request.args.get('search', '').strip()
+
+        query = {}
+        if role_filter and role_filter != 'all':
+            query['role'] = role_filter
+
+        if search_query:
+            import re
+            regex = re.compile(re.escape(search_query), re.IGNORECASE)
+            query['$or'] = [
+                {'first_name': regex},
+                {'last_name': regex},
+                {'email': regex},
+                {'farm_name': regex},
+            ]
+
+        users_cursor = db.users.find(query).sort('created_at', -1)
+
+        users_list = []
+        role_counts = defaultdict(int)
+        active_count = 0
+        inactive_count = 0
+
+        for u in users_cursor:
+            is_active = u.get('is_active', True)
+            role = u.get('role', 'user')
+            role_counts[role] += 1
+            if is_active:
+                active_count += 1
+            else:
+                inactive_count += 1
+
+            created_at = u.get('created_at')
+            last_login = u.get('last_login')
+
+            users_list.append({
+                'id': str(u['_id']),
+                'email': u.get('email', ''),
+                'first_name': u.get('first_name', ''),
+                'last_name': u.get('last_name', ''),
+                'phone': u.get('phone', ''),
+                'role': role,
+                'is_active': is_active,
+                'farm_name': u.get('farm_name', ''),
+                'profile_picture': u.get('profile_picture', ''),
+                'created_at': created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at) if created_at else None,
+                'last_login': last_login.isoformat() if hasattr(last_login, 'isoformat') else str(last_login) if last_login else None,
+            })
+
+        return jsonify({
+            'users': users_list,
+            'total_count': len(users_list),
+            'active_count': active_count,
+            'inactive_count': inactive_count,
+            'role_counts': dict(role_counts),
+        }), 200
+
+    except Exception as e:
+        print(f"Error fetching users: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/api/admin/users/<user_id>/toggle-status', methods=['PUT'])
+@token_required
+def admin_toggle_user_status(user_id):
+    """Activate or deactivate a user account."""
+    try:
+        db, _ = get_mongodb_db(admin_bp)
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+
+        user_email = request.user_email
+        if not user_email:
+            return jsonify({'error': 'User email not found in token'}), 401
+
+        admin_user = db.users.find_one({'email': user_email, 'role': 'admin'})
+        if not admin_user:
+            return jsonify({'error': 'Admin access required'}), 403
+
+        target_user = db.users.find_one({'_id': ObjectId(user_id)})
+        if not target_user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Prevent admins from deactivating themselves
+        if str(target_user['_id']) == str(admin_user['_id']):
+            return jsonify({'error': 'You cannot deactivate your own account'}), 400
+
+        data = request.get_json() or {}
+        new_status = data.get('is_active')
+
+        # If explicit status not provided, toggle the current value
+        if new_status is None:
+            new_status = not target_user.get('is_active', True)
+
+        db.users.update_one(
+            {'_id': ObjectId(user_id)},
+            {'$set': {'is_active': bool(new_status)}}
+        )
+
+        action = 'activated' if new_status else 'deactivated'
+        return jsonify({
+            'message': f'User {action} successfully',
+            'user_id': user_id,
+            'is_active': bool(new_status),
+        }), 200
+
+    except Exception as e:
+        print(f"Error toggling user status: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500

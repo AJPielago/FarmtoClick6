@@ -94,6 +94,7 @@ export const ordersAPI = {
   getOrderTracking: (id) => api.get(`/api/orders/${id}/tracking`),
   assignRider: (id, payload) => api.post(`/api/orders/${id}/assign-rider`, payload),
   getRiderOrders: () => api.get('/api/rider/orders'),
+  getRiderDashboard: (period) => api.get('/api/rider/dashboard', { params: { period: period || '7d' } }),
   updateRiderOrderStatus: (id, payload) => api.post(`/api/rider/orders/${id}/status`, payload),
   confirmPaymongo: (orderId) => api.post('/api/paymongo/confirm', { order_id: orderId }),
 };
@@ -126,6 +127,17 @@ export const dtiAPI = {
   // Public (no auth) – landing page price predictions
   getPublicPricePredictions: (limit = 6, days = 1) =>
     api.get('/api/public/price-predictions', { params: { limit, days } }),
+};
+
+export const reviewsAPI = {
+  getProductReviews: (productId) => api.get(`/api/products/${productId}/reviews`),
+  checkEligibility: (productId) => api.get(`/api/products/${productId}/reviews/eligibility`),
+  createReview: (productId, data) => api.post(`/api/products/${productId}/reviews`, data),
+  updateReview: (reviewId, data) => api.put(`/api/reviews/${reviewId}`, data),
+  deleteReview: (reviewId) => api.delete(`/api/reviews/${reviewId}`),
+  // Admin
+  getAdminReviews: (params) => api.get('/api/admin/reviews', { params }),
+  adminDeleteReview: (reviewId) => api.delete(`/api/admin/reviews/${reviewId}`),
 };
 
 export default api;

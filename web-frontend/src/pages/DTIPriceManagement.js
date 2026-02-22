@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { dtiAPI } from '../services/api';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const DTIPriceManagement = () => {
   const { user } = useAuth();
@@ -190,6 +191,12 @@ const DTIPriceManagement = () => {
     <div className="manage-products-page">
       {/* Navigation */}
       <Navbar />
+
+      <div style={{ padding: '12px 20px' }}>
+        <Link to="/admin-dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: '#2c7a2c', textDecoration: 'none', fontWeight: 600 }}>
+          <i className="fas fa-arrow-left"></i> Admin Dashboard
+        </Link>
+      </div>
 
       <section className="products-page">
         <div className="container">
@@ -399,20 +406,7 @@ const DTIPriceManagement = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="footer">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-section">
-              <h3><i className="fas fa-seedling"></i> FarmtoClick</h3>
-              <p>Connecting communities with fresh, local produce since 2024.</p>
-            </div>
-          </div>
-          <div className="footer-bottom">
-            <p>&copy; 2024 FarmtoClick. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

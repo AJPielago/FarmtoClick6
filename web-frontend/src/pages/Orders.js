@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ordersAPI } from '../services/api';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const Orders = () => {
   const { user } = useAuth();
@@ -62,6 +63,12 @@ const Orders = () => {
     return value.replace(/\b\w/g, (m) => m.toUpperCase());
   };
 
+  const getPaymentLabel = (method) => {
+    const map = { cash: 'Cash on Delivery', card: 'Card', mobile: 'Mobile Money', gcash: 'GCash' };
+    const key = (method || '').toLowerCase();
+    return map[key] || (method ? method.charAt(0).toUpperCase() + method.slice(1) : '');
+  };
+
   const refreshTracking = async (orderId) => {
     try {
       setTrackingLoading(prev => ({ ...prev, [orderId]: true }));
@@ -103,277 +110,213 @@ const Orders = () => {
     return (
       <div className="orders-page">
         <Navbar />
-        <section className="orders-page">
-          <div className="container">
-            <div className="no-products">
-              <h3>Please Login</h3>
-              <p>You need to be logged in to view your orders</p>
-              <Link to="/login" className="btn btn-primary">Login Now</Link>
+        <div className="orders-hero">
+          <div className="orders-hero-inner">
+            <div>
+              <h1><i className="fas fa-box-open"></i> My Orders</h1>
+              <p>Track and manage your purchases</p>
             </div>
           </div>
-        </section>
+        </div>
+        <div className="orders-body">
+          <div className="orders-empty">
+            <i className="fas fa-user-lock"></i>
+            <h3>Please Log In</h3>
+            <p>You need to be logged in to view your orders.</p>
+            <Link to="/login" className="ord-btn ord-btn--primary">Log In Now</Link>
+          </div>
+        </div>
       </div>
     );
   }
+
+  const pendingCount  = orders.filter(o => (o.status || '').toLowerCase().includes('pending')).length;
+  const deliveredCount = orders.filter(o => (o.status || '').toLowerCase() === 'delivered').length;
 
   return (
     <div className="orders-page">
       <Navbar />
 
-      {/* Orders Section */}
-      <section className="orders-page">
-        <div className="container">
-          <div className="section-header">
-            <h2><i className="fas fa-box"></i> My Orders</h2>
-            <p>Track and manage all your orders</p>
+      {/* Hero Banner */}
+      <div className="orders-hero">
+        <div className="orders-hero-inner">
+          <div>
+            <h1><i className="fas fa-box-open"></i> My Orders</h1>
+            <p>Track and manage all your purchases</p>
           </div>
-          {isLoading ? (
-            <div className="loading-spinner"><i className="fas fa-spinner fa-spin"></i> Loading orders...</div>
-          ) : orders.length > 0 ? (
-            <div className="orders-grid">
-              {orders.map(order => {
-                const orderId = order._id || order.id;
-                const isExpanded = expandedOrders[orderId];
-                
-                return (
-                  <article key={orderId} className={`order-card order-collapsible ${isExpanded ? 'is-open' : ''}`}>
-                    <div className="order-header" onClick={() => toggleOrder(orderId)}>
-                      <div>
-                        <h3>#Order {order.order_number || orderId.substring(0, 8)}</h3>
-                        <p className="order-date">
-                          {order.created_at ? new Date(order.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : ''}
-                        </p>
-                      </div>
-                      <div className="order-summary">
-                        <span className={`order-status ${getStatusClass(order.status)}`}>
-                          {getStatusLabel(order.status)}
-                        </span>
-                        <p className="order-total">₱{(order.total_amount || 0).toFixed(2)}</p>
-                      </div>
-                      <button className="order-toggle" type="button" aria-expanded={isExpanded}>
-                        <i className={`fas fa-chevron-down ${isExpanded ? 'rotated' : ''}`}></i>
-                      </button>
-                    </div>
-
-                    <div className="order-details" style={{ display: isExpanded ? 'block' : 'none' }}>
-                      <div className="order-meta">
-                        <div className="order-meta-grid">
-                          {order.order_number && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Order Number</span>
-                              <span className="meta-value">{order.order_number}</span>
-                            </div>
-                          )}
-                          {orderId && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Order ID</span>
-                              <span className="meta-value">{orderId}</span>
-                            </div>
-                          )}
-                          {order.payment_method && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Payment Method</span>
-                              <span className="meta-value">{order.payment_method}</span>
-                            </div>
-                          )}
-                          <div className="order-meta-item">
-                            <span className="meta-label">Delivery Status</span>
-                            <span className="meta-value">
-                              {getStatusLabel(order.delivery_status || order.status)}
-                            </span>
-                          </div>
-                          {order.delivery_tracking_id && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Tracking ID</span>
-                              <span className="meta-value">{order.delivery_tracking_id}</span>
-                            </div>
-                          )}
-                          {order.logistics_provider && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Logistics</span>
-                              <span className="meta-value">{order.logistics_provider}</span>
-                            </div>
-                          )}
-                          {order.delivery_proof_url && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Delivery Proof</span>
-                              <span className="meta-value">
-                                <a href={order.delivery_proof_url} target="_blank" rel="noreferrer">View photo</a>
-                              </span>
-                            </div>
-                          )}
-                          {order.assigned_rider_name && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Rider</span>
-                              <span className="meta-value">{order.assigned_rider_name}</span>
-                            </div>
-                          )}
-                          {order.assigned_rider_phone && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Rider Phone</span>
-                              <span className="meta-value">{order.assigned_rider_phone}</span>
-                            </div>
-                          )}
-                          {(order.assigned_rider_barangay || order.assigned_rider_city || order.assigned_rider_province) && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Rider Area</span>
-                              <span className="meta-value">
-                                {[order.assigned_rider_barangay, order.assigned_rider_city, order.assigned_rider_province].filter(Boolean).join(', ')}
-                              </span>
-                            </div>
-                          )}
-                          {order.shipping_name && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Recipient</span>
-                              <span className="meta-value">{order.shipping_name}</span>
-                            </div>
-                          )}
-                          {order.shipping_phone && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Phone</span>
-                              <span className="meta-value">{order.shipping_phone}</span>
-                            </div>
-                          )}
-                          {(order.shipping_address || order.delivery_address) && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Address</span>
-                              <span className="meta-value">{order.shipping_address || order.delivery_address}</span>
-                            </div>
-                          )}
-                          {order.delivery_notes && (
-                            <div className="order-meta-item order-meta-notes">
-                              <span className="meta-label">Delivery Notes</span>
-                              <span className="meta-value">{order.delivery_notes}</span>
-                            </div>
-                          )}
-                          {order.tracking_number && (
-                            <div className="order-meta-item">
-                              <span className="meta-label">Tracking</span>
-                              <span className="meta-value">{order.tracking_number}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ marginTop: '12px' }}>
-                          <button
-                            type="button"
-                            className="btn btn-outline"
-                            onClick={() => refreshTracking(orderId)}
-                            disabled={trackingLoading[orderId]}
-                          >
-                            {trackingLoading[orderId] ? 'Refreshing...' : 'Refresh Delivery Status'}
-                          </button>
-                          {order.payment_provider === 'paymongo' && order.payment_status !== 'paid' && (
-                            <button
-                              type="button"
-                              className="btn btn-primary"
-                              onClick={() => confirmPaymongoPayment(orderId)}
-                              disabled={confirmLoading[orderId]}
-                              style={{ marginLeft: '10px' }}
-                            >
-                              {confirmLoading[orderId] ? 'Verifying...' : 'Verify Payment'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {order.delivery_updates && order.delivery_updates.length > 0 && (
-                        <div className="order-meta" style={{ marginTop: '12px' }}>
-                          <div className="order-meta-grid">
-                            <div className="order-meta-item order-meta-notes">
-                              <span className="meta-label">Delivery Updates</span>
-                              <span className="meta-value">
-                                {order.delivery_updates.map((update, idx) => (
-                                  <span key={idx} style={{ display: 'block' }}>
-                                    {getStatusLabel(update.status)} · {update.updated_at ? new Date(update.updated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
-                                  </span>
-                                ))}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {order.items && order.items.length > 0 && (
-                        <div className="order-items">
-                          <p className="order-items-title">Items</p>
-                          <div className="order-items-table">
-                            <div className="order-items-row order-items-header">
-                              <span>Item</span>
-                              <span>Qty</span>
-                              <span>Price</span>
-                              <span>Total</span>
-                            </div>
-                            {order.items.map((item, idx) => {
-                              const itemName = item.product_name || item.name || 'Item';
-                              const itemQty = item.quantity || 1;
-                              const itemPrice = item.price || 0;
-                              const itemTotal = itemPrice * itemQty;
-                              return (
-                                <div key={idx} className="order-items-row">
-                                  <span className="item-name">{itemName}</span>
-                                  <span className="item-qty">{itemQty}</span>
-                                  <span className="item-price">₱{itemPrice.toFixed(2)}</span>
-                                  <span className="item-total">₱{itemTotal.toFixed(2)}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="no-products">
-              <h3>No orders yet</h3>
-              <p>When you place an order, you'll see it here.</p>
-              <Link to="/products" className="btn btn-primary">Browse Products</Link>
+          {!isLoading && (
+            <div className="orders-hero-stats">
+              <div className="orders-stat">
+                <span className="orders-stat-num">{orders.length}</span>
+                <span className="orders-stat-label">Total</span>
+              </div>
+              <div className="orders-stat">
+                <span className="orders-stat-num">{pendingCount}</span>
+                <span className="orders-stat-label">Pending</span>
+              </div>
+              <div className="orders-stat">
+                <span className="orders-stat-num">{deliveredCount}</span>
+                <span className="orders-stat-label">Delivered</span>
+              </div>
             </div>
           )}
         </div>
-      </section>
+      </div>
 
-      {/* Footer */}
-      <footer className="footer">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-section">
-              <h3><i className="fas fa-seedling"></i> FarmtoClick</h3>
-              <p>Connecting communities with fresh, local produce since 2024.</p>
-            </div>
-            <div className="footer-section">
-              <h4>Quick Links</h4>
-              <ul>
-                <li><Link to="/products">Products</Link></li>
-                <li><Link to="/farmers">Farmers</Link></li>
-                <li><a href="/about">About Us</a></li>
-                <li><a href="/faq">FAQ</a></li>
-              </ul>
-            </div>
-            <div className="footer-section">
-              <h4>For Farmers</h4>
-              <ul>
-                <li><Link to="/start-selling">Join as Farmer</Link></li>
-                <li><a href="/farmer-resources">Farmer Resources</a></li>
-                <li><a href="/success-stories">Success Stories</a></li>
-              </ul>
-            </div>
-            <div className="footer-section">
-              <h4>Follow Us</h4>
-              <div className="social-links">
-                <a href="https://facebook.com/farmtoclick" target="_blank" rel="noopener noreferrer"><i className="fab fa-facebook"></i> Facebook</a>
-                <a href="https://instagram.com/farmtoclick" target="_blank" rel="noopener noreferrer"><i className="fab fa-instagram"></i> Instagram</a>
-                <a href="https://twitter.com/farmtoclick" target="_blank" rel="noopener noreferrer"><i className="fab fa-twitter"></i> Twitter</a>
-              </div>
-            </div>
+      {/* Orders Body */}
+      <div className="orders-body">
+        {isLoading ? (
+          <div className="orders-loading"><i className="fas fa-spinner fa-spin"></i> Loading your orders…</div>
+        ) : orders.length > 0 ? (
+          <div className="orders-list">
+            {orders.map(order => {
+              const orderId = order._id || order.id;
+              const isExpanded = expandedOrders[orderId];
+              const itemsPreview = (order.items || []).slice(0, 3).map(i => i.product_name || i.name).filter(Boolean).join(', ');
+              const moreItems = (order.items || []).length > 3 ? ` +${order.items.length - 3} more` : '';
+
+              return (
+                <article key={orderId} className={`ord-card${isExpanded ? ' ord-card--open' : ''}`}>
+
+                  {/* Always-visible summary bar */}
+                  <div
+                    className={`ord-summary ord-accent-${getStatusClass(order.status)}`}
+                    onClick={() => toggleOrder(orderId)}
+                  >
+                    <div className="ord-left">
+                      <span className="ord-num">#{order.order_number || orderId.substring(0, 8).toUpperCase()}</span>
+                      <span className="ord-date">
+                        {order.created_at
+                          ? new Date(order.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                          : 'Date unknown'}
+                      </span>
+                    </div>
+
+                    <div className="ord-middle">
+                      {itemsPreview && (
+                        <span className="ord-items-preview">
+                          <i className="fas fa-shopping-basket"></i> {itemsPreview}{moreItems}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="ord-right">
+                      <span className={`ord-badge ${getStatusClass(order.status)}`}>{getStatusLabel(order.status)}</span>
+                      <span className="ord-total">₱{(order.total_amount || 0).toFixed(2)}</span>
+                    </div>
+
+                    <div className="ord-chevron">
+                      <i className={`fas fa-chevron-down${isExpanded ? ' rotated' : ''}`}></i>
+                    </div>
+                  </div>
+
+                  {/* Expanded detail panel */}
+                  {isExpanded && (
+                    <div className="ord-details">
+                      <div className="ord-details-cols">
+
+                        {/* Column 1 — Delivery Info */}
+                        <div className="ord-details-col">
+                          <p className="ord-col-title"><i className="fas fa-map-marker-alt"></i> Delivery Info</p>
+                          {order.shipping_name && <div className="ord-detail-row"><span className="od-label">Recipient</span><span>{order.shipping_name}</span></div>}
+                          {order.shipping_phone && <div className="ord-detail-row"><span className="od-label">Phone</span><span>{order.shipping_phone}</span></div>}
+                          {(order.shipping_address || order.delivery_address) && <div className="ord-detail-row"><span className="od-label">Address</span><span>{[order.shipping_address || order.delivery_address, order.overall_location].filter(Boolean).join(', ')}</span></div>}
+                          {order.delivery_notes && <div className="ord-detail-row"><span className="od-label">Notes</span><span>{order.delivery_notes}</span></div>}
+                          {order.payment_method && <div className="ord-detail-row"><span className="od-label">Payment</span><span>{getPaymentLabel(order.payment_method)}</span></div>}
+                          {orderId && <div className="ord-detail-row"><span className="od-label">Order ID</span><span style={{fontSize:'.78rem',wordBreak:'break-all'}}>{orderId}</span></div>}
+                        </div>
+
+                        {/* Column 2 — Tracking */}
+                        <div className="ord-details-col">
+                          <p className="ord-col-title"><i className="fas fa-truck"></i> Tracking</p>
+                          <div className="ord-detail-row"><span className="od-label">Status</span><span>{getStatusLabel(order.delivery_status || order.status)}</span></div>
+                          {order.delivery_tracking_id && <div className="ord-detail-row"><span className="od-label">Tracking ID</span><span>{order.delivery_tracking_id}</span></div>}
+                          {order.assigned_rider_name && <div className="ord-detail-row"><span className="od-label">Courier</span><span>{order.assigned_rider_name}</span></div>}
+                          {order.assigned_rider_phone && <div className="ord-detail-row"><span className="od-label">Rider Phone</span><span>{order.assigned_rider_phone}</span></div>}
+                          {order.delivery_proof_url && (
+                            <div className="ord-detail-row">
+                              <span className="od-label">Proof</span>
+                              <span><a href={order.delivery_proof_url} target="_blank" rel="noreferrer">View photo ↗</a></span>
+                            </div>
+                          )}
+                          {order.delivery_updates && order.delivery_updates.length > 0 && (
+                            <div className="ord-updates">
+                              {order.delivery_updates.map((u, i) => (
+                                <div key={i} className="ord-update-item">
+                                  <span className="ord-update-dot"></span>
+                                  <span>{getStatusLabel(u.status)}</span>
+                                  <span className="ord-update-time">
+                                    {u.updated_at ? new Date(u.updated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Column 3 — Items */}
+                        <div className="ord-details-col">
+                          <p className="ord-col-title"><i className="fas fa-list-ul"></i> Order Items</p>
+                          {(order.items || []).map((item, idx) => {
+                            const qty   = item.quantity || 1;
+                            const price = item.price || 0;
+                            return (
+                              <div key={idx} className="ord-item-row">
+                                <span className="ord-item-name">{item.product_name || item.name || 'Item'}</span>
+                                <span className="ord-item-qty">×{qty}</span>
+                                <span className="ord-item-price">₱{(price * qty).toFixed(2)}</span>
+                              </div>
+                            );
+                          })}
+                          <div className="ord-items-total">
+                            <span>Total</span>
+                            <span>₱{(order.total_amount || 0).toFixed(2)}</span>
+                          </div>
+                        </div>
+
+                      </div>{/* /cols */}
+
+                      {/* Actions */}
+                      <div className="ord-actions">
+                        <button
+                          type="button"
+                          className="ord-btn ord-btn--outline"
+                          onClick={() => refreshTracking(orderId)}
+                          disabled={trackingLoading[orderId]}
+                        >
+                          <i className="fas fa-sync-alt"></i>
+                          {trackingLoading[orderId] ? 'Refreshing…' : 'Refresh Tracking'}
+                        </button>
+                        {order.payment_provider === 'paymongo' && order.payment_status !== 'paid' && (
+                          <button
+                            type="button"
+                            className="ord-btn ord-btn--primary"
+                            onClick={() => confirmPaymongoPayment(orderId)}
+                            disabled={confirmLoading[orderId]}
+                          >
+                            <i className="fas fa-check-circle"></i>
+                            {confirmLoading[orderId] ? 'Verifying…' : 'Verify Payment'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                </article>
+              );
+            })}
           </div>
-          <div className="footer-bottom">
-            <p>&copy; 2024 FarmtoClick. All rights reserved.</p>
+        ) : (
+          <div className="orders-empty">
+            <i className="fas fa-box-open"></i>
+            <h3>No orders yet</h3>
+            <p>When you place an order, it'll show up here.</p>
+            <Link to="/products" className="ord-btn ord-btn--primary">Browse Products</Link>
           </div>
-        </div>
-      </footer>
+        )}
+      </div>
+
+      <Footer />
     </div>
   );
 };

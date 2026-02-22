@@ -966,6 +966,12 @@ def get_prediction_accuracy(db, product_name):
             'message': 'Need at least 3 data points for accuracy testing.',
             'comparisons': [],
             'data_points': len(history),
+            'accuracy_pct': 0,
+            'overall_mae': 0,
+            'overall_mape': 0,
+            'overall_rmse': 0,
+            'model': model_name,
+            'unit': unit,
         }
 
     base_date = datetime.strptime(history[0]['date'], '%Y-%m-%d')
@@ -1058,6 +1064,12 @@ def get_prediction_accuracy(db, product_name):
             'comparisons': [],
             'data_points': len(history),
             'message': 'Not enough data for backtest.',
+            'accuracy_pct': 0,
+            'overall_mae': 0,
+            'overall_mape': 0,
+            'overall_rmse': 0,
+            'model': model_name,
+            'unit': unit,
         }
 
     errors = [c['error'] for c in comparisons]

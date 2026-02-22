@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { farmersAPI } from '../services/api';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 import 'leaflet/dist/leaflet.css';
 
 /* ------------------------------------------------------------------ */
@@ -277,6 +278,7 @@ const FarmerProfile = () => {
           )}
         </div>
       </section>
+      <Footer />
     </div>
   );
 };

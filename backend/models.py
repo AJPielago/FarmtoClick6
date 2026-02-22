@@ -127,22 +127,34 @@ class Order(Document):
         }
 
 class Review(Document):
-    meta = {'collection': 'reviews'}
-    
+    meta = {
+        'collection': 'reviews',
+        'indexes': [
+            {'fields': ['user', 'product'], 'unique': True},  # one review per user per product
+            'product',
+            'created_at',
+        ],
+    }
+
     user = ReferenceField(User, required=True)
     product = ReferenceField(Product, required=True)
-    rating = IntField(required=True, min=1, max=5)
-    comment = StringField()
+    rating = IntField(required=True, min_value=1, max_value=5)
+    comment = StringField(max_length=1000)
+    updated_at = DateTimeField()
     created_at = DateTimeField(default=datetime.utcnow)
-    
+
     def to_dict(self):
         return {
             'id': str(self.id),
             'user_id': str(self.user.id) if self.user else None,
+            'user_name': self.user.full_name if self.user else None,
+            'user_profile_picture': self.user.profile_picture if self.user else None,
             'product_id': str(self.product.id) if self.product else None,
+            'product_name': self.product.name if self.product else None,
             'rating': self.rating,
             'comment': self.comment,
-            'created_at': _to_iso(self.created_at)
+            'updated_at': _to_iso(self.updated_at),
+            'created_at': _to_iso(self.created_at),
         }
 
 class PermitVerification(Document):

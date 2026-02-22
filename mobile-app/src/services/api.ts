@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API Base URL - Change this to your Flask server URL
-const API_BASE_URL = 'http://192.168.2.194:5001'; // Replace with your computer's IP address
+const API_BASE_URL = 'http://10.253.232.130:5001'; // Replace with your computer's IP address
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -129,6 +129,7 @@ export const ordersAPI = {
     api.post(`/api/order/${id}/status`, payload),
   getOrderTracking: (id: string) => api.get(`/api/orders/${id}/tracking`),
   getRiderOrders: () => api.get('/api/rider/orders'),
+  getRiderDashboard: (period?: string) => api.get('/api/rider/dashboard', { params: { period: period || '7d' } }),
   updateRiderOrderStatus: (id: string, payload: any) => 
     api.post(`/api/rider/orders/${id}/status`, payload),
   assignRider: (id: string, payload: any) => api.post(`/api/orders/${id}/assign-rider`, payload),
@@ -200,6 +201,18 @@ export const adminAPI = {
   getUsers: () => api.get('/api/admin/users'),
   updateUserRole: (userId: string, role: string) => 
     api.put(`/api/admin/users/${userId}/role`, { role }),
+};
+
+// Reviews API
+export const reviewsAPI = {
+  getProductReviews: (productId: string) => api.get(`/api/products/${productId}/reviews`),
+  checkEligibility: (productId: string) => api.get(`/api/products/${productId}/reviews/eligibility`),
+  createReview: (productId: string, data: any) => api.post(`/api/products/${productId}/reviews`, data),
+  updateReview: (reviewId: string, data: any) => api.put(`/api/reviews/${reviewId}`, data),
+  deleteReview: (reviewId: string) => api.delete(`/api/reviews/${reviewId}`),
+  // Admin
+  getAdminReviews: (params?: any) => api.get('/api/admin/reviews', { params }),
+  adminDeleteReview: (reviewId: string) => api.delete(`/api/admin/reviews/${reviewId}`),
 };
 
 export default api;

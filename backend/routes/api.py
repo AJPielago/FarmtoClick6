@@ -380,6 +380,7 @@ def api_user_profile():
             'role': user.role,
             'is_admin': user.role == 'admin',
             'is_farmer': user.role == 'farmer',
+            'is_rider': user.role == 'rider',
             'profile_picture': user.profile_picture,
             'farm_name': getattr(user, 'farm_name', ''),
             'farm_location': getattr(user, 'farm_location', ''),
@@ -860,6 +861,283 @@ def api_paymongo_confirm():
         return jsonify({'error': str(e)}), 500
 
 
+# ────────────────────────────────────────────────────────
+# Rider Dashboard Stats
+# ────────────────────────────────────────────────────────
+@api_bp.route('/rider/dashboard', methods=['GET'])
+@token_required
+def api_rider_dashboard():
+    """Return comprehensive stats for the logged-in rider."""
+    try:
+        from user_model import User
+        from bson import ObjectId
+        from datetime import timedelta
+
+        db, _ = get_mongodb_db(api_bp)
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+
+        user = User.get_by_email(db, request.user_email)
+        if not user or getattr(user, 'role', 'user') != 'rider':
+            return jsonify({'error': 'Not authorized'}), 403
+
+        rider_doc = db.riders.find_one({'user_id': str(user.id)})
+        if not rider_doc:
+            rider_doc = db.riders.find_one({'email': user.email})
+        if not rider_doc:
+            return jsonify({'error': 'Rider profile not found'}), 404
+
+        assigned_id = str(rider_doc.get('_id'))
+        rider_user_id = str(user.id)
+        rider_email = user.email
+
+        # ── Parse period query param ──
+        period = request.args.get('period', '7d')
+        period_map = {
+            '7d': 7,
+            '14d': 14,
+            '30d': 30,
+            '3m': 90,
+            '6m': 180,
+            '1y': 365,
+            'all': None,
+        }
+        period_days = period_map.get(period, 7)
+        period_label_map = {
+            '7d': 'Last 7 Days',
+            '14d': 'Last 14 Days',
+            '30d': 'Last 30 Days',
+            '3m': 'Last 3 Months',
+            '6m': 'Last 6 Months',
+            '1y': 'Last Year',
+            'all': 'All Time',
+        }
+        period_label = period_label_map.get(period, 'Last 7 Days')
+
+        # Build match query (same logic as /rider/orders)
+        match_conditions = [
+            {'assigned_rider_id': assigned_id},
+            {'assigned_rider_user_id': rider_user_id},
+        ]
+        if rider_email:
+            match_conditions.append({'assigned_rider_email': rider_email})
+
+        all_orders = list(db.orders.find({'$or': match_conditions}).sort('created_at', -1))
+
+        # Helper to parse order created_at to datetime
+        def _parse_dt(o):
+            ca = o.get('created_at')
+            if ca is None:
+                return None
+            if isinstance(ca, datetime):
+                return ca
+            if isinstance(ca, str):
+                try:
+                    return datetime.fromisoformat(ca.replace('Z', '+00:00')).replace(tzinfo=None)
+                except Exception:
+                    return None
+            return None
+
+        # ── Counts by status ──
+        total = len(all_orders)
+        status_counts = {}
+        for o in all_orders:
+            s = (o.get('delivery_status') or o.get('status') or 'pending').lower()
+            status_counts[s] = status_counts.get(s, 0) + 1
+
+        delivered   = status_counts.get('delivered', 0)
+        picked_up   = status_counts.get('picked_up', 0)
+        on_the_way  = status_counts.get('on_the_way', 0)
+        ready_ship  = status_counts.get('ready_for_ship', 0)
+        cancelled   = status_counts.get('cancelled', 0)
+        active      = picked_up + on_the_way + ready_ship
+
+        # ── Revenue / earnings ──
+        total_value = sum(float(o.get('total_amount', 0)) for o in all_orders)
+        delivered_value = sum(
+            float(o.get('total_amount', 0)) for o in all_orders
+            if (o.get('delivery_status') or o.get('status') or '').lower() == 'delivered'
+        )
+
+        # ── Completion rate ──
+        completion_rate = round((delivered / total * 100), 1) if total > 0 else 0.0
+
+        # ── Today's stats ──
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_orders = [
+            o for o in all_orders
+            if _parse_dt(o) is not None and _parse_dt(o) >= today_start
+        ]
+        today_total = len(today_orders)
+        today_delivered = sum(
+            1 for o in today_orders
+            if (o.get('delivery_status') or o.get('status') or '').lower() == 'delivered'
+        )
+        today_value = sum(float(o.get('total_amount', 0)) for o in today_orders)
+
+        # ── Period stats (based on selected period) ──
+        if period_days is not None:
+            period_start = datetime.utcnow() - timedelta(days=period_days)
+            period_orders = [
+                o for o in all_orders
+                if _parse_dt(o) is not None and _parse_dt(o) >= period_start
+            ]
+        else:
+            period_orders = all_orders
+
+        period_total = len(period_orders)
+        period_delivered = sum(
+            1 for o in period_orders
+            if (o.get('delivery_status') or o.get('status') or '').lower() == 'delivered'
+        )
+        period_value = sum(float(o.get('total_amount', 0)) for o in period_orders)
+
+        # ── Chart breakdown for selected period ──
+        # For shorter periods (<=14 days): daily breakdown
+        # For medium periods (<=90 days): daily breakdown but fewer labels
+        # For longer periods (>90 days): weekly breakdown
+        chart_data = []
+        if period_days is not None and period_days <= 90:
+            # Daily breakdown
+            num_days = period_days
+            for i in range(num_days - 1, -1, -1):
+                day = datetime.utcnow() - timedelta(days=i)
+                day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+                day_end = day_start + timedelta(days=1)
+                day_orders = [
+                    o for o in all_orders
+                    if _parse_dt(o) is not None and day_start <= _parse_dt(o) < day_end
+                ]
+                day_delivered = sum(
+                    1 for o in day_orders
+                    if (o.get('delivery_status') or o.get('status') or '').lower() == 'delivered'
+                )
+                day_value = sum(float(o.get('total_amount', 0)) for o in day_orders)
+                # Use shorter date format for larger ranges
+                if num_days <= 14:
+                    date_label = day_start.strftime('%b %d')
+                else:
+                    date_label = day_start.strftime('%m/%d')
+                chart_data.append({
+                    'date': date_label,
+                    'orders': len(day_orders),
+                    'delivered': day_delivered,
+                    'value': round(day_value, 2),
+                })
+        elif period_days is not None:
+            # Weekly breakdown for periods > 90 days
+            num_weeks = period_days // 7
+            for i in range(num_weeks - 1, -1, -1):
+                wk_end = datetime.utcnow() - timedelta(days=i * 7)
+                wk_start = wk_end - timedelta(days=7)
+                wk_start = wk_start.replace(hour=0, minute=0, second=0, microsecond=0)
+                wk_end = wk_end.replace(hour=0, minute=0, second=0, microsecond=0)
+                wk_orders = [
+                    o for o in all_orders
+                    if _parse_dt(o) is not None and wk_start <= _parse_dt(o) < wk_end
+                ]
+                wk_delivered = sum(
+                    1 for o in wk_orders
+                    if (o.get('delivery_status') or o.get('status') or '').lower() == 'delivered'
+                )
+                wk_value = sum(float(o.get('total_amount', 0)) for o in wk_orders)
+                chart_data.append({
+                    'date': wk_start.strftime('%b %d'),
+                    'orders': len(wk_orders),
+                    'delivered': wk_delivered,
+                    'value': round(wk_value, 2),
+                })
+        else:
+            # All time — monthly breakdown
+            if all_orders:
+                earliest_dt = None
+                for o in all_orders:
+                    dt = _parse_dt(o)
+                    if dt and (earliest_dt is None or dt < earliest_dt):
+                        earliest_dt = dt
+                if earliest_dt is None:
+                    earliest_dt = datetime.utcnow() - timedelta(days=365)
+                now = datetime.utcnow()
+                current = earliest_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                while current <= now:
+                    if current.month == 12:
+                        month_end = current.replace(year=current.year + 1, month=1)
+                    else:
+                        month_end = current.replace(month=current.month + 1)
+                    mo_orders = [
+                        o for o in all_orders
+                        if _parse_dt(o) is not None and current <= _parse_dt(o) < month_end
+                    ]
+                    mo_delivered = sum(
+                        1 for o in mo_orders
+                        if (o.get('delivery_status') or o.get('status') or '').lower() == 'delivered'
+                    )
+                    mo_value = sum(float(o.get('total_amount', 0)) for o in mo_orders)
+                    chart_data.append({
+                        'date': current.strftime('%b %Y'),
+                        'orders': len(mo_orders),
+                        'delivered': mo_delivered,
+                        'value': round(mo_value, 2),
+                    })
+                    current = month_end
+
+        # ── Recent 5 orders ──
+        recent = []
+        for o in all_orders[:5]:
+            buyer = db.users.find_one({'id': o.get('user_id')})
+            recent.append({
+                'id': str(o.get('_id')),
+                'status': (o.get('delivery_status') or o.get('status') or 'pending').lower(),
+                'buyer_name': buyer.get('first_name') if buyer else 'Customer',
+                'total_amount': float(o.get('total_amount', 0)),
+                'created_at': o.get('created_at').isoformat() if isinstance(o.get('created_at'), datetime) else o.get('created_at'),
+                'items_count': len(o.get('items', [])),
+                'shipping_address': o.get('shipping_address') or o.get('delivery_address') or '',
+            })
+
+        # ── Status distribution for pie chart ──
+        status_distribution = [
+            {'name': k.replace('_', ' ').title(), 'value': v, 'key': k}
+            for k, v in status_counts.items() if v > 0
+        ]
+
+        return jsonify({
+            'rider_name': rider_doc.get('name', ''),
+            'rider_phone': rider_doc.get('phone', ''),
+            'period': period,
+            'period_label': period_label,
+            'stats': {
+                'total_orders': total,
+                'delivered': delivered,
+                'active': active,
+                'picked_up': picked_up,
+                'on_the_way': on_the_way,
+                'ready_for_ship': ready_ship,
+                'cancelled': cancelled,
+                'completion_rate': completion_rate,
+                'total_value': round(total_value, 2),
+                'delivered_value': round(delivered_value, 2),
+            },
+            'today': {
+                'orders': today_total,
+                'delivered': today_delivered,
+                'value': round(today_value, 2),
+            },
+            'period_stats': {
+                'orders': period_total,
+                'delivered': period_delivered,
+                'value': round(period_value, 2),
+                'label': period_label,
+            },
+            'daily_chart': chart_data,
+            'status_distribution': status_distribution,
+            'recent_orders': recent,
+        })
+    except Exception as e:
+        print(f"[RiderDashboard] Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @api_bp.route('/rider/orders', methods=['GET'])
 @token_required
 def api_get_rider_orders():
@@ -878,10 +1156,52 @@ def api_get_rider_orders():
         if not rider_doc:
             rider_doc = db.riders.find_one({'email': user.email})
         if not rider_doc:
+            print(f"[RiderOrders] No rider profile for user {user.email} (id={user.id})")
             return jsonify({'error': 'Rider profile not found'}), 404
 
         assigned_id = str(rider_doc.get('_id'))
-        orders = list(db.orders.find({'assigned_rider_id': assigned_id}).sort('created_at', -1))
+        rider_user_id = str(user.id)
+        rider_email = user.email
+        print(f"[RiderOrders] Rider {rider_doc.get('name')} (assigned_id={assigned_id}, "
+              f"user_id={rider_user_id}, email={rider_email}) querying orders...")
+
+        # Match by rider ObjectId, rider user UUID, OR rider email for robustness
+        match_conditions = [
+            {'assigned_rider_id': assigned_id},
+            {'assigned_rider_user_id': rider_user_id},
+        ]
+        if rider_email:
+            match_conditions.append({'assigned_rider_email': rider_email})
+
+        # Also include orders that are in delivery statuses but have no rider
+        # assigned yet (farmer advanced status without assigning a rider).
+        # Auto-stamp the current rider on these orders so they appear going forward.
+        unassigned_delivery = list(db.orders.find({
+            'status': {'$in': ['picked_up', 'on_the_way', 'ready_for_ship']},
+            '$or': [
+                {'assigned_rider_id': {'$exists': False}},
+                {'assigned_rider_id': None},
+                {'assigned_rider_id': ''},
+            ],
+        }))
+        if unassigned_delivery:
+            unassigned_ids = [o['_id'] for o in unassigned_delivery]
+            stamp = {
+                'assigned_rider_id': assigned_id,
+                'assigned_rider_user_id': rider_user_id,
+                'assigned_rider_email': rider_email or '',
+                'assigned_rider_name': rider_doc.get('name', ''),
+                'assigned_rider_phone': rider_doc.get('phone', ''),
+                'assigned_rider_barangay': rider_doc.get('barangay', ''),
+                'assigned_rider_city': rider_doc.get('city', ''),
+                'assigned_rider_province': rider_doc.get('province', ''),
+                'assigned_at': datetime.utcnow(),
+            }
+            db.orders.update_many({'_id': {'$in': unassigned_ids}}, {'$set': stamp})
+            print(f"[RiderOrders] Auto-stamped rider on {len(unassigned_ids)} unassigned delivery orders")
+
+        orders = list(db.orders.find({'$or': match_conditions}).sort('created_at', -1))
+        print(f"[RiderOrders] Found {len(orders)} assigned orders")
 
         results = []
         for order in orders:
@@ -898,6 +1218,7 @@ def api_get_rider_orders():
                 'shipping_name': order.get('shipping_name'),
                 'shipping_phone': order.get('shipping_phone'),
                 'shipping_address': order.get('shipping_address'),
+                'overall_location': order.get('overall_location', ''),
                 'delivery_address': order.get('delivery_address'),
                 'delivery_notes': order.get('delivery_notes'),
                 'items': order.get('items', []),
@@ -944,7 +1265,21 @@ def api_update_rider_order_status(order_id):
             return jsonify({'success': False, 'message': 'Rider profile not found'}), 404
 
         assigned_id = str(rider_doc.get('_id'))
-        if order_doc.get('assigned_rider_id') != assigned_id:
+        rider_user_id = str(user.id)
+        rider_email = user.email
+        order_rider_id = order_doc.get('assigned_rider_id')
+        order_rider_uid = order_doc.get('assigned_rider_user_id')
+        order_rider_email = order_doc.get('assigned_rider_email', '')
+
+        # If no rider is assigned yet, auto-stamp this rider on the order
+        no_rider_assigned = not order_rider_id and not order_rider_uid
+        is_owner = (
+            no_rider_assigned
+            or order_rider_id == assigned_id
+            or order_rider_uid == rider_user_id
+            or (rider_email and order_rider_email == rider_email)
+        )
+        if not is_owner:
             return jsonify({'success': False, 'message': 'Not authorized'}), 403
 
         current_status = (order_doc.get('delivery_status') or order_doc.get('status') or 'pending').lower()
@@ -960,6 +1295,21 @@ def api_update_rider_order_status(order_id):
             'delivery_status': new_status,
             'updated_at': datetime.utcnow(),
         }
+
+        # Stamp rider info on the order if not yet assigned
+        if no_rider_assigned:
+            update_fields.update({
+                'assigned_rider_id': assigned_id,
+                'assigned_rider_user_id': rider_user_id,
+                'assigned_rider_email': rider_email or '',
+                'assigned_rider_name': rider_doc.get('name', ''),
+                'assigned_rider_phone': rider_doc.get('phone', ''),
+                'assigned_rider_barangay': rider_doc.get('barangay', ''),
+                'assigned_rider_city': rider_doc.get('city', ''),
+                'assigned_rider_province': rider_doc.get('province', ''),
+                'assigned_at': datetime.utcnow(),
+            })
+            print(f"[RiderStatus] Auto-stamped rider {rider_doc.get('name')} on order {order_id}")
 
         if new_status == 'delivered':
             proof_file = request.files.get('delivery_proof')
@@ -1086,6 +1436,7 @@ def api_create_order():
         shipping_name = (data.get('shipping_name') or '').strip()
         shipping_phone = (data.get('shipping_phone') or '').strip()
         shipping_address = (data.get('shipping_address') or '').strip()
+        overall_location = (data.get('overall_location') or '').strip()
         payment_method_raw = (data.get('payment_method') or '').strip()
         payment_method = payment_method_raw.lower()
 
@@ -1150,6 +1501,7 @@ def api_create_order():
             'shipping_name': shipping_name,
             'shipping_phone': shipping_phone,
             'shipping_address': shipping_address,
+            'overall_location': overall_location,
             'payment_method': payment_method_raw,
             'payment_status': 'pending' if is_mobile_money else 'unpaid',
             'payment_provider': 'paymongo' if is_mobile_money else None,
@@ -1384,6 +1736,7 @@ def api_farmer_orders():
                     'shipping_name': order_doc.get('shipping_name'),
                     'shipping_phone': order_doc.get('shipping_phone'),
                     'shipping_address': order_doc.get('shipping_address'),
+                    'overall_location': order_doc.get('overall_location', ''),
                     'delivery_address': order_doc.get('delivery_address'),
                     'delivery_notes': order_doc.get('delivery_notes'),
                     'assigned_rider_id': order_doc.get('assigned_rider_id'),
@@ -1461,6 +1814,25 @@ def api_update_order_status(order_id):
         update_fields = {'status': new_status, 'updated_at': datetime.utcnow()}
         if new_status == 'rejected':
             update_fields['rejection_reason'] = status_reason
+
+        # Auto-assign the only active rider if advancing to delivery statuses
+        # and no rider is assigned yet.
+        if new_status in ('picked_up', 'on_the_way', 'delivered') and not order_doc.get('assigned_rider_id'):
+            active_riders = list(db.riders.find({'active': True}))
+            if len(active_riders) == 1:
+                r = active_riders[0]
+                update_fields.update({
+                    'assigned_rider_id': str(r['_id']),
+                    'assigned_rider_user_id': r.get('user_id', ''),
+                    'assigned_rider_email': r.get('email', ''),
+                    'assigned_rider_name': r.get('name', ''),
+                    'assigned_rider_phone': r.get('phone', ''),
+                    'assigned_rider_barangay': r.get('barangay', ''),
+                    'assigned_rider_city': r.get('city', ''),
+                    'assigned_rider_province': r.get('province', ''),
+                    'assigned_at': datetime.utcnow(),
+                })
+                print(f"[FarmerStatus] Auto-assigned rider {r.get('name')} to order {order_id}")
 
         if new_status == 'ready_for_ship' and not order_doc.get('delivery_tracking_id'):
             delivery = create_delivery_order(order_id, None, order_doc.get('shipping_address', ''))
@@ -1604,6 +1976,8 @@ def api_assign_order_rider(order_id):
 
         update_doc = {
             'assigned_rider_id': str(rider_doc.get('_id')),
+            'assigned_rider_user_id': rider_doc.get('user_id', ''),
+            'assigned_rider_email': rider_doc.get('email', ''),
             'assigned_rider_name': rider_doc.get('name', ''),
             'assigned_rider_phone': rider_doc.get('phone', ''),
             'assigned_rider_barangay': rider_doc.get('barangay', ''),
@@ -1613,7 +1987,14 @@ def api_assign_order_rider(order_id):
             'updated_at': datetime.utcnow(),
         }
 
-        db.orders.update_one({'_id': order_doc['_id']}, {'$set': update_doc})
+        result = db.orders.update_one({'_id': order_doc['_id']}, {'$set': update_doc})
+        print(f"[AssignRider] Order {order_id} → Rider {rider_doc.get('name')} "
+              f"(rider_id={str(rider_doc.get('_id'))}, rider_user_id={rider_doc.get('user_id', '')}, "
+              f"rider_email={rider_doc.get('email', '')}) "
+              f"matched={result.matched_count} modified={result.modified_count}")
+
+        if result.matched_count == 0:
+            return jsonify({'success': False, 'message': 'Order update failed — not found'}), 500
 
         try:
             buyer = db.users.find_one({'id': order_doc.get('user_id')})

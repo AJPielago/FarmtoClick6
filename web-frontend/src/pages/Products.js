@@ -2,7 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { productsAPI, cartAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -17,6 +19,7 @@ const Products = () => {
   const [flashMessages, setFlashMessages] = useState([]);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { refreshCartCount } = useCart();
 
   const categories = [
     'Vegetables', 'Fruits', 'Grains & Cereals', 'Dairy & Eggs', 'Meat & Poultry',
@@ -138,6 +141,7 @@ const Products = () => {
     try {
       await cartAPI.addToCart(productId, 1);
       setFlashMessages([{ category: 'success', text: `${productName} added to cart!` }]);
+      refreshCartCount();
     } catch (error) {
       console.error('Error adding to cart:', error);
       setFlashMessages([{ category: 'error', text: 'Network error. Please check your connection.' }]);
@@ -410,45 +414,7 @@ const Products = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="footer">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-section">
-              <h3><i className="fas fa-seedling"></i> FarmtoClick</h3>
-              <p>Connecting communities with fresh, local produce since 2024.</p>
-            </div>
-            <div className="footer-section">
-              <h4>Quick Links</h4>
-              <ul>
-                <li><Link to="/products">Products</Link></li>
-                <li><Link to="/farmers">Farmers</Link></li>
-                <li><a href="/about">About Us</a></li>
-                <li><a href="/faq">FAQ</a></li>
-              </ul>
-            </div>
-            <div className="footer-section">
-              <h4>For Farmers</h4>
-              <ul>
-                <li><a href="/start-selling">Join as Farmer</a></li>
-                <li><a href="/farmer-resources">Farmer Resources</a></li>
-                <li><a href="/success-stories">Success Stories</a></li>
-              </ul>
-            </div>
-            <div className="footer-section">
-              <h4>Follow Us</h4>
-              <div className="social-links">
-                <a href="https://facebook.com/farmtoclick" target="_blank" rel="noopener noreferrer"><i className="fab fa-facebook"></i> Facebook</a>
-                <a href="https://instagram.com/farmtoclick" target="_blank" rel="noopener noreferrer"><i className="fab fa-instagram"></i> Instagram</a>
-                <a href="https://twitter.com/farmtoclick" target="_blank" rel="noopener noreferrer"><i className="fab fa-twitter"></i> Twitter</a>
-              </div>
-            </div>
-          </div>
-          <div className="footer-bottom">
-            <p>&copy; 2024 FarmtoClick. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

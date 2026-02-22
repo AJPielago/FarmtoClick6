@@ -569,6 +569,36 @@ const AdminDashboard = () => {
                       </div>
                       <div className="action-arrow"><i className="fas fa-chevron-right"></i></div>
                     </Link>
+
+                    <Link to="/admin-users" className="action-card">
+                      <div className="action-icon"><i className="fas fa-users-cog"></i></div>
+                      <div className="action-info">
+                        <h3>User Management</h3>
+                        <p>View all users, activate/deactivate accounts, filter by role</p>
+                        <span className="action-badge">Manage</span>
+                      </div>
+                      <div className="action-arrow"><i className="fas fa-chevron-right"></i></div>
+                    </Link>
+
+                    <Link to="/admin-reports" className="action-card">
+                      <div className="action-icon"><i className="fas fa-file-pdf"></i></div>
+                      <div className="action-info">
+                        <h3>Printable Reports</h3>
+                        <p>Generate table-based reports for printing or saving as PDF</p>
+                        <span className="action-badge">PDF Export</span>
+                      </div>
+                      <div className="action-arrow"><i className="fas fa-chevron-right"></i></div>
+                    </Link>
+
+                    <Link to="/admin-reviews" className="action-card">
+                      <div className="action-icon"><i className="fas fa-star"></i></div>
+                      <div className="action-info">
+                        <h3>Customer Reviews</h3>
+                        <p>View and moderate all product reviews and ratings</p>
+                        <span className="action-badge">Reviews</span>
+                      </div>
+                      <div className="action-arrow"><i className="fas fa-chevron-right"></i></div>
+                    </Link>
                   </div>
                 </div>
               )}

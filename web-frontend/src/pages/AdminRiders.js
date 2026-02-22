@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ridersAPI } from '../services/api';
 import Navbar from '../components/Navbar';
@@ -110,6 +110,7 @@ const AdminRiders = () => {
       <section className="admin-riders-content">
         <div className="container">
           <div className="admin-riders-header">
+            <Link to="/admin-dashboard" className="back-link"><i className="fas fa-arrow-left"></i> Admin Dashboard</Link>
             <h2>Rider Management</h2>
             <p>Admin-only rider accounts with delivery coverage areas.</p>
           </div>
@@ -245,6 +246,16 @@ const AdminRiders = () => {
           flex-direction: column;
           gap: 6px;
         }
+        .back-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: #2c7a2c;
+          font-weight: 600;
+          text-decoration: none;
+          margin-bottom: 6px;
+        }
+        .back-link i { margin-right: 4px; }
         .admin-riders-header h2 {
           margin-bottom: 0;
           font-size: 1.8rem;

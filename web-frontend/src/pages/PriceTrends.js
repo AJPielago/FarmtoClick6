@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { dtiAPI } from '../services/api';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, ReferenceLine, Area, ComposedChart
@@ -61,8 +62,13 @@ const PriceTrends = () => {
         if (user?.role === 'admin') {
           setLoadingAccuracy(true);
           dtiAPI.getPredictionAccuracy(productName)
-            .then(accRes => { if (accRes.data?.found) setAccuracyData(accRes.data); })
-            .catch(() => {})
+            .then(accRes => {
+              // Only set data if we have actual comparison stats
+              if (accRes.data?.found && accRes.data?.comparisons?.length > 0) {
+                setAccuracyData(accRes.data);
+              }
+            })
+            .catch(err => console.error('Accuracy report error:', err))
             .finally(() => setLoadingAccuracy(false));
         }
       } else {
@@ -76,7 +82,7 @@ const PriceTrends = () => {
     } finally {
       setLoadingTrend(false);
     }
-  }, [forecastDays]);
+  }, [forecastDays, user]);
 
   const handleProductSelect = (name) => {
     setSelectedProduct(name);
@@ -145,6 +151,12 @@ const PriceTrends = () => {
   return (
     <div className="manage-products-page">
       <Navbar />
+
+      <div style={{ padding: '12px 20px' }}>
+        <Link to="/admin-dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: '#2c7a2c', textDecoration: 'none', fontWeight: 600 }}>
+          <i className="fas fa-arrow-left"></i> Admin Dashboard
+        </Link>
+      </div>
 
       <section className="products-page">
         <div className="container" style={{ maxWidth: 1200 }}>
@@ -687,20 +699,7 @@ const PriceTrends = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="footer">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-section">
-              <h3><i className="fas fa-seedling"></i> FarmtoClick</h3>
-              <p>Connecting communities with fresh, local produce since 2024.</p>
-            </div>
-          </div>
-          <div className="footer-bottom">
-            <p>&copy; 2024 FarmtoClick. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

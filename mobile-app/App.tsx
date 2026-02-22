@@ -29,6 +29,12 @@ import CoVendorsMarketplaceScreen from './src/screens/CoVendorsMarketplaceScreen
 import AdminRidersScreen from './src/screens/AdminRidersScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import PriceTrendsScreen from './src/screens/PriceTrendsScreen';
+import AboutUsScreen from './src/screens/AboutUsScreen';
+import AdminUsersScreen from './src/screens/AdminUsersScreen';
+import AdminReviewsScreen from './src/screens/AdminReviewsScreen';
+import AdminPrintableReportsScreen from './src/screens/AdminPrintableReportsScreen';
+import FarmerOrdersScreen from './src/screens/FarmerOrdersScreen';
+import RiderDashboardScreen from './src/screens/RiderDashboardScreen';
 
 // Context
 import { AuthProvider } from './src/context/AuthContext';
@@ -191,6 +197,36 @@ export default function App() {
             name="RiderOrders"
             component={RiderOrdersScreen}
             options={{ title: 'Assigned Orders' }}
+          />
+          <Stack.Screen
+            name="AboutUs"
+            component={AboutUsScreen}
+            options={{ title: 'About Us' }}
+          />
+          <Stack.Screen
+            name="AdminUsers"
+            component={AdminUsersScreen}
+            options={{ title: 'Manage Users' }}
+          />
+          <Stack.Screen
+            name="AdminReviews"
+            component={AdminReviewsScreen}
+            options={{ title: 'Manage Reviews' }}
+          />
+          <Stack.Screen
+            name="AdminPrintableReports"
+            component={AdminPrintableReportsScreen}
+            options={{ title: 'System Reports' }}
+          />
+          <Stack.Screen
+            name="FarmerOrders"
+            component={FarmerOrdersScreen}
+            options={{ title: 'Manage Orders' }}
+          />
+          <Stack.Screen
+            name="RiderDashboard"
+            component={RiderDashboardScreen}
+            options={{ title: 'Rider Dashboard' }}
           />
         </Stack.Navigator>
         <StatusBar style="auto" />

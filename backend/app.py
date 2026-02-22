@@ -43,6 +43,8 @@ CORS(
     origins=[
         'http://localhost:3000', 'http://localhost:3001',
         'http://127.0.0.1:3000', 'http://127.0.0.1:3001',
+        'http://10.253.232.130:5001',
+        '*',  # Allow mobile app requests (React Native has no Origin header)
     ],
     allow_headers=['Content-Type', 'Authorization'],
     expose_headers=['Content-Type', 'Authorization'],
@@ -180,6 +182,7 @@ from routes.orders import orders_bp
 from routes.profile import profile_bp
 from routes.admin import admin_bp
 from routes.api import api_bp
+from routes.reviews import reviews_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(products_bp)
@@ -189,6 +192,7 @@ app.register_blueprint(orders_bp)
 app.register_blueprint(profile_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(api_bp)
+app.register_blueprint(reviews_bp)
 
 # ---------------------------------------------------------------------------
 # Test MongoEngine connection on startup
