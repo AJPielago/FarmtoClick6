@@ -311,22 +311,27 @@ const FarmerDashboard = () => {
           <div className="farmer-dashboard-section">
             <div className="farmer-section-header">
               <h2 className="farmer-section-title"><i className="fas fa-receipt"></i> Orders</h2>
-              <Link to="/farmer-orders" className="btn btn-primary btn-large">
-                <i className="fas fa-receipt"></i> View Orders for Your Products
-                {sellerOrders.filter(o => (o.status || '').toLowerCase() === 'pending').length > 0 && (
-                  <span style={{
-                    background: '#dc2626',
-                    color: '#fff',
-                    borderRadius: '50%',
-                    padding: '2px 8px',
-                    fontSize: '0.8rem',
-                    marginLeft: '8px',
-                    fontWeight: 'bold'
-                  }}>
-                    {sellerOrders.filter(o => (o.status || '').toLowerCase() === 'pending').length}
-                  </span>
-                )}
-              </Link>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <Link to="/farmer-printable-reports" className="btn btn-outline">
+                  <i className="fas fa-print"></i> Printable Reports
+                </Link>
+                <Link to="/farmer-orders" className="btn btn-primary btn-large">
+                  <i className="fas fa-receipt"></i> View Orders for Your Products
+                  {sellerOrders.filter(o => (o.status || '').toLowerCase() === 'pending').length > 0 && (
+                    <span style={{
+                      background: '#dc2626',
+                      color: '#fff',
+                      borderRadius: '50%',
+                      padding: '2px 8px',
+                      fontSize: '0.8rem',
+                      marginLeft: '8px',
+                      fontWeight: 'bold'
+                    }}>
+                      {sellerOrders.filter(o => (o.status || '').toLowerCase() === 'pending').length}
+                    </span>
+                  )}
+                </Link>
+              </div>
             </div>
           </div>
 

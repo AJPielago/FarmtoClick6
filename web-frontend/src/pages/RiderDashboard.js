@@ -109,7 +109,10 @@ const RiderDashboard = () => {
             <h1>Rider Dashboard</h1>
             <p>Welcome back, <strong>{dashboard?.rider_name || user?.first_name || 'Rider'}</strong>! Here's your delivery overview.</p>
           </div>
-          <div className="rd-hero-actions">
+          <div className="rd-hero-actions" style={{ display: 'flex', gap: '10px' }}>
+            <Link to="/rider-printable-reports" className="rd-hero-btn" style={{ background: 'transparent', border: '1px solid white', color: 'white' }}>
+              Printable Reports
+            </Link>
             <Link to="/rider-orders" className="rd-hero-btn">
               View All Orders
             </Link>

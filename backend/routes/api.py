@@ -386,6 +386,7 @@ def api_user_profile():
             'farm_location': getattr(user, 'farm_location', ''),
             'overall_location': getattr(user, 'overall_location', ''),
             'shipping_address': getattr(user, 'shipping_address', ''),
+            'addresses': getattr(user, 'addresses', []),
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -526,8 +527,178 @@ def api_update_profile():
                 'farm_phone': getattr(user, 'farm_phone', ''),
                 'farm_location': getattr(user, 'farm_location', ''),
                 'farm_description': getattr(user, 'farm_description', ''),
+                'addresses': getattr(user, 'addresses', []),
             },
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/user/addresses', methods=['POST'])
+@token_required
+def api_add_address():
+    try:
+        from user_model import User
+        import uuid
+        db, _ = get_mongodb_db(api_bp)
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+
+        user = User.get_by_email(db, request.user_email)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        new_address = {
+            'id': str(uuid.uuid4()),
+            'label': data.get('label', 'Home'),
+            'full_name': data.get('full_name', user.full_name),
+            'phone': data.get('phone', user.phone),
+            'street': data.get('street', ''),
+            'city': data.get('city', ''),
+            'province': data.get('province', ''),
+            'postal_code': data.get('postal_code', ''),
+            'is_default': data.get('is_default', False)
+        }
+
+        addresses = getattr(user, 'addresses', [])
+        if not addresses:
+            new_address['is_default'] = True
+        elif new_address['is_default']:
+            for addr in addresses:
+                addr['is_default'] = False
+
+        addresses.append(new_address)
+        user.addresses = addresses
+        user.save(db)
+
+        return jsonify({'message': 'Address added successfully', 'addresses': user.addresses})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/user/addresses/<address_id>', methods=['PUT'])
+@token_required
+def api_update_address(address_id):
+    try:
+        from user_model import User
+        db, _ = get_mongodb_db(api_bp)
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+
+        user = User.get_by_email(db, request.user_email)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        addresses = getattr(user, 'addresses', [])
+        address_found = False
+
+        if data.get('is_default'):
+            for addr in addresses:
+                addr['is_default'] = False
+
+        for addr in addresses:
+            if addr.get('id') == address_id:
+                addr['label'] = data.get('label', addr.get('label'))
+                addr['full_name'] = data.get('full_name', addr.get('full_name'))
+                addr['phone'] = data.get('phone', addr.get('phone'))
+                addr['street'] = data.get('street', addr.get('street'))
+                addr['city'] = data.get('city', addr.get('city'))
+                addr['province'] = data.get('province', addr.get('province'))
+                addr['postal_code'] = data.get('postal_code', addr.get('postal_code'))
+                if 'is_default' in data:
+                    addr['is_default'] = data['is_default']
+                address_found = True
+                break
+
+        if not address_found:
+            return jsonify({'error': 'Address not found'}), 404
+
+        user.addresses = addresses
+        user.save(db)
+
+        return jsonify({'message': 'Address updated successfully', 'addresses': user.addresses})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/user/addresses/<address_id>', methods=['DELETE'])
+@token_required
+def api_delete_address(address_id):
+    try:
+        from user_model import User
+        db, _ = get_mongodb_db(api_bp)
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+
+        user = User.get_by_email(db, request.user_email)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        addresses = getattr(user, 'addresses', [])
+        initial_len = len(addresses)
+        
+        # Find if the deleted address was default
+        was_default = False
+        for addr in addresses:
+            if addr.get('id') == address_id and addr.get('is_default'):
+                was_default = True
+                break
+
+        addresses = [addr for addr in addresses if addr.get('id') != address_id]
+
+        if len(addresses) == initial_len:
+            return jsonify({'error': 'Address not found'}), 404
+
+        # If we deleted the default address and there are others left, make the first one default
+        if was_default and addresses:
+            addresses[0]['is_default'] = True
+
+        user.addresses = addresses
+        user.save(db)
+
+        return jsonify({'message': 'Address deleted successfully', 'addresses': user.addresses})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/user/addresses/<address_id>/default', methods=['PUT'])
+@token_required
+def api_set_default_address(address_id):
+    try:
+        from user_model import User
+        db, _ = get_mongodb_db(api_bp)
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+
+        user = User.get_by_email(db, request.user_email)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        addresses = getattr(user, 'addresses', [])
+        address_found = False
+
+        for addr in addresses:
+            if addr.get('id') == address_id:
+                addr['is_default'] = True
+                address_found = True
+            else:
+                addr['is_default'] = False
+
+        if not address_found:
+            return jsonify({'error': 'Address not found'}), 404
+
+        user.addresses = addresses
+        user.save(db)
+
+        return jsonify({'message': 'Default address updated', 'addresses': user.addresses})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1454,9 +1625,15 @@ def api_create_order():
         is_mobile_money = payment_method == 'mobile'
         order_items = []
         total_amount = 0.0
+        
+        selected_items = data.get('selected_items')
 
         for item in cart_doc.get('items', []):
             product_id = item.get('product_id')
+            
+            if selected_items is not None and product_id not in selected_items:
+                continue
+                
             qty = int(item.get('quantity', 1))
 
             product_data = None
@@ -1559,7 +1736,13 @@ def api_create_order():
             except Exception as e:
                 print(f"Order confirmation email error: {e}")
 
-            db.carts.delete_one({'_id': cart_doc['_id']})
+            if selected_items:
+                db.carts.update_one(
+                    {'_id': cart_doc['_id']},
+                    {'$pull': {'items': {'product_id': {'$in': selected_items}}}}
+                )
+            else:
+                db.carts.delete_one({'_id': cart_doc['_id']})
 
         if is_mobile_money:
             success_url, cancel_url = _get_paymongo_redirect_urls()
@@ -3059,6 +3242,122 @@ def api_dti_trendable_products():
         limit = request.args.get('limit', 50, type=int)
         products = get_trendable_products(db, limit=limit)
         return jsonify({'products': products})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/dti/trends', methods=['GET'])
+@token_required
+def api_dti_trends():
+    """
+    Return historical price trend data and forecast for a specific product.
+    Query params:
+        name (required) – product name to analyse
+        days (optional, default 30) – forecast horizon in days
+    """
+    try:
+        from dti_price_engine import get_price_trends
+
+        db, _ = get_mongodb_db(api_bp)
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+
+        product_name = request.args.get('name', '').strip()
+        if not product_name:
+            return jsonify({'error': 'Product name is required'}), 400
+
+        days = request.args.get('days', 30, type=int)
+        result = get_price_trends(db, product_name, forecast_days=days)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/dti/public-predictions', methods=['GET'])
+def api_dti_public_predictions():
+    """
+    Alias for /public/price-predictions – returns predicted prices for the
+    top most-ordered products that have DTI trend data.
+    Query params:
+        limit (optional, default 6) – max products to return
+        days  (optional, default 1) – forecast horizon in days
+    """
+    try:
+        from dti_price_engine import get_trendable_products, get_price_trends
+        from collections import defaultdict
+
+        db, _ = get_mongodb_db(api_bp)
+        if db is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+
+        limit = request.args.get('limit', 6, type=int)
+        forecast_days = request.args.get('days', 1, type=int)
+
+        all_orders = list(db.orders.find({}, {'items': 1}))
+        product_order_count = defaultdict(int)
+        for o in all_orders:
+            for item in o.get('items', []):
+                name = (item.get('name') or '').strip()
+                if name:
+                    product_order_count[name.lower()] += int(item.get('quantity', 1))
+
+        top_ordered_names = [n for n, _ in sorted(product_order_count.items(), key=lambda x: x[1], reverse=True)]
+
+        trendable = get_trendable_products(db, limit=200)
+        trendable_map = {p['product_name'].lower(): p for p in trendable}
+
+        matched = []
+        used = set()
+        for ordered_name in top_ordered_names:
+            if len(matched) >= limit:
+                break
+            if ordered_name in trendable_map and ordered_name not in used:
+                matched.append(trendable_map[ordered_name])
+                used.add(ordered_name)
+                continue
+            for tname, tprod in trendable_map.items():
+                if tname in used:
+                    continue
+                if ordered_name in tname or tname in ordered_name:
+                    matched.append(tprod)
+                    used.add(tname)
+                    break
+
+        if len(matched) < limit:
+            for tp in trendable:
+                if len(matched) >= limit:
+                    break
+                key = tp['product_name'].lower()
+                if key not in used:
+                    matched.append(tp)
+                    used.add(key)
+
+        if not matched:
+            return jsonify({'predictions': [], 'count': 0})
+
+        predictions = []
+        for prod in matched:
+            try:
+                trend = get_price_trends(db, prod['product_name'], forecast_days=forecast_days)
+                if trend.get('found'):
+                    predictions.append({
+                        'product_name': trend['product_name'],
+                        'current_price': trend['current_price'],
+                        'predicted_price': trend.get('next_day_price', trend['predicted_price']),
+                        'predicted_date': trend.get('next_day_date'),
+                        'trend': trend.get('next_day_trend', trend['trend']),
+                        'trend_pct': trend.get('next_day_change_pct', trend['trend_pct']),
+                        'price_change': trend.get('next_day_change', 0),
+                        'confidence': trend['confidence'],
+                        'data_points': trend['data_points'],
+                        'unit': trend.get('unit', 'kg'),
+                        'history': trend.get('history', [])[-5:],
+                        'forecast': trend.get('forecast', [])[:3],
+                    })
+            except Exception:
+                continue
+
+        return jsonify({'predictions': predictions, 'count': len(predictions)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

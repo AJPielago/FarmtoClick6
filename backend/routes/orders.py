@@ -96,9 +96,15 @@ def checkout():
 
         order_items = []
         total_amount = 0
+        
+        selected_items = request.form.getlist('selected_items')
 
         for item in cart_doc['items']:
             product_id = item.get('product_id')
+            
+            if selected_items and product_id not in selected_items:
+                continue
+                
             qty = int(item.get('quantity', 1))
 
             product_data = None
@@ -261,7 +267,14 @@ def checkout():
         except Exception as e:
             print(f"Order confirmation email error: {e}")
 
-        db.carts.delete_one({'_id': cart_doc['_id']})
+        if selected_items:
+            db.carts.update_one(
+                {'_id': cart_doc['_id']},
+                {'$pull': {'items': {'product_id': {'$in': selected_items}}}}
+            )
+        else:
+            db.carts.delete_one({'_id': cart_doc['_id']})
+            
         flash('Order placed successfully!', 'success')
         return redirect(url_for('orders.orders'))
     except Exception as e:

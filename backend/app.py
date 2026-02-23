@@ -43,8 +43,8 @@ CORS(
     origins=[
         'http://localhost:3000', 'http://localhost:3001',
         'http://127.0.0.1:3000', 'http://127.0.0.1:3001',
-        'http://192.168.2.194:5001',
-        '*',  # Allow mobile app requests (React Native has no Origin header)
+        'http://192.168.56.1:5001',
+        '*',  
     ],
     allow_headers=['Content-Type', 'Authorization'],
     expose_headers=['Content-Type', 'Authorization'],
@@ -65,9 +65,9 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 # ---------------------------------------------------------------------------
 try:
     connect(host=app.config['MONGODB_URI'])
-    print("✅ Connected to MongoDB with MongoEngine!")
+    print("Connected to MongoDB with MongoEngine!")
 except Exception as e:
-    print(f"❌ MongoDB connection failed: {e}")
+    print(f"MongoDB connection failed: {e}")
 
 # ---------------------------------------------------------------------------
 # ML Verification System
@@ -76,9 +76,9 @@ try:
     from image_verification import ImageVerificationSystem
     verifier = ImageVerificationSystem()
     app.config['VERIFIER'] = verifier
-    print("✅ ML Verification System initialized!")
+    print("ML Verification System initialized!")
 except Exception as e:
-    print(f"⚠️ Warning: ML Verification System failed to initialize: {e}")
+    print(f"Warning: ML Verification System failed to initialize: {e}")
     app.config['VERIFIER'] = None
 
 # ---------------------------------------------------------------------------
@@ -200,9 +200,9 @@ app.register_blueprint(reviews_bp)
 try:
     from models import User
     User.objects.limit(1).count()
-    print("✅ Models imported & MongoDB connection verified!")
+    print("Models imported & MongoDB connection verified!")
 except Exception as e:
-    print(f"❌ Model/DB test failed: {e}")
+    print(f"Model/DB test failed: {e}")
 
 # ---------------------------------------------------------------------------
 # One-time fix: rename misparsed DTI records "1,000 ml/bottle"
@@ -221,15 +221,15 @@ try:
                 }}
             )
             if _fix_result.modified_count:
-                print(f"🔧 Fixed {_fix_result.modified_count} misparsed DTI record(s): "
+                print(f"Fixed {_fix_result.modified_count} misparsed DTI record(s): "
                       f"'1,000 ml/bottle' → 'Cooking Oil (Palm Olein, Jolly Brand) 1,000 ml/bottle'")
 except Exception as e:
-    print(f"⚠️  DTI record fix skipped: {e}")
+    print(f"DTI record fix skipped: {e}")
 
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
 if __name__ == '__main__':
-    print("🚀 Starting FarmtoClick...")
-    print("🌐 Starting Flask server on http://127.0.0.1:5001")
+    print("Starting FarmtoClick...")
+    print("Starting Flask server on http://127.0.0.1:5001")
     app.run(debug=True, host='0.0.0.0', port=5001, use_reloader=True)

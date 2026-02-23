@@ -69,7 +69,15 @@ const PriceTrendsScreen: React.FC = () => {
     try {
       setLoadingProducts(true);
       const res = await dtiAPI.getTrendableProducts();
-      setProducts(res.data?.products || res.data || []);
+      const raw: any[] = res.data?.products || res.data || [];
+      // Backend returns `product_name`; normalise to `name` used by the UI
+      setProducts(
+        raw.map((p: any) => ({
+          name: p.name || p.product_name || '',
+          unit: p.unit,
+          category: p.category,
+        }))
+      );
     } catch (error) {
       console.error('Error loading trendable products:', error);
     } finally {
@@ -115,7 +123,7 @@ const PriceTrendsScreen: React.FC = () => {
   }, [forecastRange]);
 
   const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (p.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const getPriceDirection = (direction?: string) => {

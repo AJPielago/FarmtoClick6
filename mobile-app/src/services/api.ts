@@ -1,8 +1,36 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
+/**
+ * Auto-detect the dev machine's IP from Expo DevTools so you never have
+ * to hard-code it again.  Works for both `expo start` and `expo start --tunnel`.
+ *
+ * Resolution order:
+ *  1. expoConfig.extra.apiUrl          – explicit override in app.json
+ *  2. Expo debuggerHost / hostUri       – auto-detected dev-machine IP
+ *  3. fallback to localhost (Android emulator loopback)
+ */
+function getApiBaseUrl(): string {
+  // 1. Explicit override via app.json > expo > extra > apiUrl
+  const override = Constants.expoConfig?.extra?.apiUrl;
+  if (override) return override;
 
-const API_BASE_URL = 'http://192.168.2.194:5001'; //  computer's IP address
+  // 2. Auto-detect from Expo dev server host (e.g. "10.253.232.130:8081")
+  const debuggerHost =
+    Constants.expoConfig?.hostUri ??           // SDK 49+
+    (Constants as any).manifest?.debuggerHost;  // older SDKs
+  if (debuggerHost) {
+    const ip = debuggerHost.split(':')[0]; // strip the Expo port
+    return `http://${ip}:5001`;
+  }
+
+  // 3. Fallback
+  return 'http://10.0.2.2:5001'; // Android emulator -> host machine
+}
+
+const API_BASE_URL = getApiBaseUrl();
+console.log('[api] Using API_BASE_URL:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -25,6 +25,8 @@ import PriceTrends from './pages/PriceTrends';
 import AdminRiders from './pages/AdminRiders';
 import AdminUsers from './pages/AdminUsers';
 import AdminPrintableReports from './pages/AdminPrintableReports';
+import FarmerPrintableReports from './pages/FarmerPrintableReports';
+import RiderPrintableReports from './pages/RiderPrintableReports';
 import AdminReviews from './pages/AdminReviews';
 import RiderOrders from './pages/RiderOrders';
 import RiderDashboard from './pages/RiderDashboard';
@@ -58,6 +60,8 @@ function App() {
             <Route path="/admin-riders" element={<AdminRiders />} />
             <Route path="/admin-users" element={<AdminUsers />} />
             <Route path="/admin-reports" element={<AdminPrintableReports />} />
+            <Route path="/farmer-printable-reports" element={<FarmerPrintableReports />} />
+            <Route path="/rider-printable-reports" element={<RiderPrintableReports />} />
             <Route path="/admin-reviews" element={<AdminReviews />} />
             <Route path="/rider-dashboard" element={<RiderDashboard />} />
             <Route path="/rider-orders" element={<RiderOrders />} />

@@ -26,6 +26,7 @@ const Cart = () => {
   const { refreshCartCount, setCartCount } = useCart();
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState([]);
+  const [selectedItems, setSelectedItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,7 +34,7 @@ const Cart = () => {
 
   useEffect(() => {
     if (user) {
-      loadCart();
+      loadCart(true);
     } else {
       setIsLoading(false);
     }
@@ -44,42 +45,83 @@ const Cart = () => {
     setCartCount(0);
   }, [setCartCount]);
 
-  const loadCart = async () => {
+  const loadCart = async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) setIsLoading(true);
       const response = await cartAPI.getCart();
-      setCartItems(response.data.items || []);
+      const items = response.data.items || [];
+      setCartItems(items);
+      
+      // Select all items by default if none are selected and it's the initial load
+      if (showLoading && items.length > 0) {
+        setSelectedItems(items.map(item => item.product?.id));
+      }
     } catch (error) {
       console.error('Error loading cart:', error);
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
 
   const updateQuantity = async (productId, newQuantity) => {
     if (newQuantity < 1) return;
+    
+    // Optimistic update
+    setCartItems(prevItems => 
+      prevItems.map(item => 
+        item.product?.id === productId ? { ...item, quantity: newQuantity } : item
+      )
+    );
+
     try {
       await cartAPI.updateQuantity(productId, newQuantity);
-      loadCart();
+      loadCart(false);
       refreshCartCount();
     } catch (error) {
+      loadCart(false);
       setFlashMessages([{ category: 'error', text: error.response?.data?.message || 'Error updating cart' }]);
     }
   };
 
   const removeItem = async (productId) => {
     if (!window.confirm('Remove this item from cart?')) return;
+    
+    // Optimistic update
+    setCartItems(prevItems => prevItems.filter(item => item.product?.id !== productId));
+    setSelectedItems(prev => prev.filter(id => id !== productId));
+
     try {
       await cartAPI.removeItem(productId);
-      loadCart();
+      loadCart(false);
       refreshCartCount();
     } catch (error) {
+      loadCart(false);
       setFlashMessages([{ category: 'error', text: 'Error removing item. Please try again.' }]);
+    }
+  };
+
+  const handleSelectItem = (productId) => {
+    setSelectedItems(prev => 
+      prev.includes(productId) 
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedItems.length === cartItems.length) {
+      setSelectedItems([]);
+    } else {
+      setSelectedItems(cartItems.map(item => item.product?.id));
     }
   };
 
   const handleCheckout = async (e) => {
     e.preventDefault();
+    if (selectedItems.length === 0) {
+      setFlashMessages([{ category: 'error', text: 'Please select at least one item to checkout' }]);
+      return;
+    }
     if (!paymentMethod) {
       setFlashMessages([{ category: 'error', text: 'Please select a payment method' }]);
       return;
@@ -96,6 +138,7 @@ const Cart = () => {
         shipping_address: user.shipping_address,
         overall_location: user.overall_location || '',
         payment_method: paymentMethod,
+        selected_items: selectedItems,
       });
       const checkoutUrl = response?.data?.checkout_url;
       if (checkoutUrl) {
@@ -115,8 +158,9 @@ const Cart = () => {
     }
   };
 
-  const total = cartItems.reduce((sum, item) => sum + (item.product?.price || 0) * (item.quantity || 0), 0);
-  const itemCount = cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const selectedCartItems = cartItems.filter(item => selectedItems.includes(item.product?.id));
+  const total = selectedCartItems.reduce((sum, item) => sum + (item.product?.price || 0) * (item.quantity || 0), 0);
+  const itemCount = selectedCartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
   let discountRate = 0;
   if (itemCount >= 20) discountRate = 0.15;
@@ -226,8 +270,25 @@ const Cart = () => {
           <div className="ct-layout">
             {/* Cart items */}
             <div className="ct-items-col">
+              <div className="ct-select-all">
+                <label className="ct-checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    checked={selectedItems.length === cartItems.length && cartItems.length > 0}
+                    onChange={handleSelectAll}
+                  />
+                  <span>Select All ({cartItems.length} items)</span>
+                </label>
+              </div>
               {cartItems.map(item => (
                 <div key={item.product?.id} className="ct-item">
+                  <div className="ct-item-checkbox">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedItems.includes(item.product?.id)}
+                      onChange={() => handleSelectItem(item.product?.id)}
+                    />
+                  </div>
                   <div className="ct-item-img">
                     {item.product?.image_url
                       ? <img src={item.product.image_url} alt={item.product?.name} />
@@ -455,6 +516,36 @@ const CartStyles = () => (
       transition: box-shadow 0.2s, transform 0.15s;
     }
     .ct-item:hover { box-shadow: 0 6px 24px rgba(15,23,42,0.09); transform: translateY(-1px); }
+    .ct-item-checkbox {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ct-item-checkbox input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: #2c7a2c;
+    }
+    .ct-select-all {
+      padding: 0 10px 12px;
+      display: flex;
+      align-items: center;
+    }
+    .ct-checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      color: #374151;
+      font-size: 0.9rem;
+    }
+    .ct-checkbox-label input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #2c7a2c;
+    }
     .ct-item-img {
       width: 72px;
       height: 72px;
